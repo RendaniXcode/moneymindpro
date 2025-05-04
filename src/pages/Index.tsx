@@ -8,7 +8,7 @@ import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import InsightsCard from '@/components/dashboard/InsightsCard';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/use-toast';
-import { useFinancialData, extractFinancialRatios, getTrendData, formatCategoryName } from '@/hooks/useFinancialData';
+import { useFinancialData, extractFinancialRatios, getTrendData, formatCategoryName, processS3UploadedData } from '@/hooks/useFinancialData';
 import { 
   profitabilityTrend as mockProfitabilityTrend,
   liquidityTrend as mockLiquidityTrend,
@@ -47,11 +47,21 @@ const Index = () => {
   // Handle file upload completion
   const handleUploadComplete = useCallback((data: any) => {
     if (data && data.report) {
-      setUploadedData(data);
-      toast({
-        title: "Data Loaded",
-        description: `Financial data for ${data.company || 'Unknown Company'} has been loaded.`,
-      });
+      // Process the uploaded data using our utility function
+      const processedData = processS3UploadedData(data);
+      if (processedData) {
+        setUploadedData(processedData);
+        toast({
+          title: "Data Loaded",
+          description: `Financial data for ${data.company || 'Unknown Company'} has been loaded.`,
+        });
+      } else {
+        toast({
+          title: "Invalid Data Format",
+          description: "The uploaded file doesn't contain valid financial report data.",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Invalid Data Format",

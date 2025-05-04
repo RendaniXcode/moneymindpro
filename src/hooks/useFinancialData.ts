@@ -1,4 +1,5 @@
 
+
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
@@ -70,6 +71,43 @@ export const extractFinancialRatios = (data: any) => {
     value: item.Value,
     explanation: item.Explanation
   }));
+};
+
+// Helper to process S3 uploaded data
+export const processS3UploadedData = (data: any) => {
+  if (!data || !data.report) {
+    return null;
+  }
+  
+  // Convert the uploaded data format to match our API format
+  const processedData = {
+    data: [],
+    categories: [],
+    insights: data.report.key_insights || [],
+    recommendations: data.report.recommendations || []
+  };
+  
+  // Process financial ratios
+  if (data.report.financial_ratios) {
+    const categories = Object.keys(data.report.financial_ratios);
+    processedData.categories = categories;
+    
+    // Convert nested structure to flat array format
+    categories.forEach(category => {
+      const metrics = data.report.financial_ratios[category];
+      Object.keys(metrics).forEach(metricName => {
+        const metricData = metrics[metricName];
+        processedData.data.push({
+          Category: category,
+          Metric: metricName,
+          Value: metricData.value.toString(),
+          Explanation: metricData.explanation
+        });
+      });
+    });
+  }
+  
+  return processedData;
 };
 
 // Format helpers for display
