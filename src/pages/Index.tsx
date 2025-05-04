@@ -7,7 +7,6 @@ import MetricChart from '@/components/dashboard/MetricChart';
 import DataTable from '@/components/dashboard/DataTable';
 import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import InsightsCard from '@/components/dashboard/InsightsCard';
-import FileUploadButton from '@/components/dashboard/FileUploadButton';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/use-toast';
 import { useFinancialData, extractFinancialRatios, getTrendData } from '@/hooks/useFinancialData';
@@ -105,7 +104,7 @@ const Index = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout onUploadComplete={handleUploadComplete}>
       <DashboardHeader 
         title={`${financialData?.company || 'MultiChoice Group'} Financial Dashboard`}
         subtitle={`Financial Analysis & Key Performance Metrics - ${year} | Generated: ${
@@ -118,7 +117,6 @@ const Index = () => {
       <div className="flex flex-wrap justify-between items-center mb-6">
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-medium">Dashboard Overview</h3>
-          <FileUploadButton onUploadComplete={handleUploadComplete} />
         </div>
         <TimeRangeSelector 
           value={timeRange}

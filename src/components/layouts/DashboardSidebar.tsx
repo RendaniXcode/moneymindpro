@@ -9,12 +9,20 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarTrigger,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { ChartBar, DollarSign, AreaChart, Database } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ChartBar, DollarSign, AreaChart, Database, Upload } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import FileUploadButton from '@/components/dashboard/FileUploadButton';
 
-const DashboardSidebar = () => {
+interface DashboardSidebarProps {
+  onUploadComplete?: (data: any) => void;
+}
+
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onUploadComplete }) => {
+  const location = useLocation();
+  
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -28,7 +36,7 @@ const DashboardSidebar = () => {
       <SidebarContent className="pt-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton asChild isActive={location.pathname === '/'}>
               <Link to="/" className="flex items-center gap-3">
                 <ChartBar className="h-4 w-4" />
                 <span>Dashboard</span>
@@ -56,6 +64,15 @@ const DashboardSidebar = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        
+        <SidebarSeparator className="my-4" />
+        
+        <div className="px-4">
+          <FileUploadButton 
+            onUploadComplete={onUploadComplete} 
+            className="w-full justify-center"
+          />
+        </div>
       </SidebarContent>
       
       <SidebarFooter className="p-4">
