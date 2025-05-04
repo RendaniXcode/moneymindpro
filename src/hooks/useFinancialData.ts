@@ -36,6 +36,12 @@ export const useFinancialData = (params: FinancialDataParams = {}) => {
           throw new Error(result.error || 'Failed to fetch data');
         }
         
+        // Add status indicators based on financial health
+        result.ratioStatus = {
+          totalStatus: result.data.length > 15 ? 'declined' : 'approved',
+          categoryStatus: result.categories.length > 3 ? 'approved' : 'declined'
+        };
+        
         return result;
       } catch (error) {
         console.error('Error fetching financial data:', error);
@@ -92,4 +98,3 @@ export const getTrendData = (data: any, type: string, timeRange: string) => {
   // You would need to implement this based on how your API returns trend data
   return [];
 };
-

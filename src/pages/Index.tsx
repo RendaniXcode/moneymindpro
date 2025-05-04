@@ -121,7 +121,7 @@ const Index = () => {
   return (
     <DashboardLayout onUploadComplete={handleUploadComplete}>
       <DashboardHeader 
-        title={`Financial Dashboard`}
+        title="Financial Dashboard"
         subtitle={`Financial Analysis & Key Performance Metrics - Generated: ${new Date().toLocaleDateString()}`} 
       />
 
@@ -129,10 +129,17 @@ const Index = () => {
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-medium">Dashboard Overview</h3>
         </div>
-        <TimeRangeSelector 
-          value={timeRange}
-          onChange={setTimeRange}
-        />
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <span>Quarterly</span>
+          </Button>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <span>Yearly</span>
+          </Button>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <span>5 Year Trend</span>
+          </Button>
+        </div>
       </div>
       
       {/* Filters */}
@@ -234,17 +241,24 @@ const Index = () => {
         <MetricCard 
           title="Total Records" 
           value={financialRatios.length.toString()}
-          description="Financial ratios"
+          status="declined"
+          subtitle="Financial ratios"
+          highlights="3 Highlights to summarize the reason why it was Declined"
         />
+        
         <MetricCard 
           title="Categories" 
           value={categories.length.toString()}
-          description="Ratio categories"
+          status="approved"
+          subtitle="Ratio categories"
+          highlights="3 Highlights to summarize the reason why it was approve"
         />
+        
         <MetricCard 
           title="Current Filter" 
           value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
           description="Applied filter"
+          subtitle="Small Executive SUMMARY"
         />
       </div>
       
