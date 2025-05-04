@@ -17,7 +17,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ title, subtitle }) =>
       </div>
       <div className="flex items-center gap-2 self-end md:self-auto">
         <Button variant="outline" size="sm" className="flex items-center gap-2">
-          <CalendarRange className="h-4 w-4" /> 2024
+          <CalendarRange className="h-4 w-4" /> 2025
         </Button>
         <Button variant="outline" size="sm" className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4" /> Refresh
