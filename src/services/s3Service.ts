@@ -16,9 +16,9 @@ interface S3Config {
 
 export class S3Service {
   private s3Client: S3Client | null = null;
-  private albumBucketName: string;
-  private useAcceleration: boolean;
-  private config: S3Config;
+  private readonly albumBucketName: string;
+  private readonly useAcceleration: boolean;
+  private readonly config: S3Config;
   private initialized = false;
 
   constructor(config: S3Config) {
@@ -369,7 +369,6 @@ export class S3Service {
   async deleteAlbum(albumName: string) {
     try {
       console.log(`Deleting album/folder ${albumName} and all contents`);
-      const s3Client = await this.initializeS3();
 
       // First list all objects in the album/folder
       const files = await this.listFiles(albumName);
