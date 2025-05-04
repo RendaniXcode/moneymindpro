@@ -31,38 +31,38 @@ const MetricCard: React.FC<MetricCardProps> = ({
       className
     )}>
       <CardContent className="p-4">
-        <div className="flex flex-col gap-1">
-          {status !== 'neutral' && (
-            <div className={cn(
-              "font-bold text-base mb-1",
-              status === 'approved' && "text-green-600",
-              status === 'declined' && "text-red-600"
-            )}>
-              {status === 'approved' ? 'APPROVED' : 'DECLINED'}
+        {status !== 'neutral' ? (
+          <div className={cn(
+            "font-bold text-2xl flex items-center justify-center h-full",
+            status === 'approved' && "text-green-600",
+            status === 'declined' && "text-red-600"
+          )}>
+            {status === 'approved' ? 'APPROVED' : 'DECLINED'}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium text-muted-foreground">{title}</p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-2xl font-bold">{value}</h3>
+              {trend && trendValue && (
+                <div className={cn(
+                  "flex items-center text-sm",
+                  trend === 'up' && "text-success",
+                  trend === 'down' && "text-danger",
+                  trend === 'neutral' && "text-muted-foreground"
+                )}>
+                  {trend === 'up' && <TrendingUp className="h-3 w-3 mr-1" />}
+                  {trend === 'down' && <TrendingDown className="h-3 w-3 mr-1" />}
+                  {trendValue}
+                </div>
+              )}
             </div>
-          )}
-          
-          <p className="text-xs font-medium text-muted-foreground">{title}</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold">{value}</h3>
-            {trend && trendValue && (
-              <div className={cn(
-                "flex items-center text-sm",
-                trend === 'up' && "text-success",
-                trend === 'down' && "text-danger",
-                trend === 'neutral' && "text-muted-foreground"
-              )}>
-                {trend === 'up' && <TrendingUp className="h-3 w-3 mr-1" />}
-                {trend === 'down' && <TrendingDown className="h-3 w-3 mr-1" />}
-                {trendValue}
-              </div>
+            
+            {description && (
+              <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
             )}
           </div>
-          
-          {description && (
-            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-          )}
-        </div>
+        )}
       </CardContent>
     </Card>
   );

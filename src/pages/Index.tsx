@@ -260,18 +260,18 @@ const Index = () => {
         </div>
       )}
       
-      {/* Summary Cards with Status - without executive summary and highlights */}
+      {/* Summary Cards with Status - only show APPROVED/DECLINED */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <MetricCard 
-          title="Total Records" 
-          value={financialRatios.length.toString()}
           status="declined"
+          title=""
+          value=""
         />
         
         <MetricCard 
-          title="Categories" 
-          value={categories.length.toString()}
           status="approved"
+          title=""
+          value=""
         />
       </div>
       
