@@ -25,7 +25,7 @@ export interface DataTableProps {
 
 const DataTable: React.FC<DataTableProps> = ({ 
   data, 
-  selectedCategory = 'all', 
+  selectedCategory = '', 
   onSelectCategory = () => {}, 
   className 
 }) => {
@@ -34,12 +34,13 @@ const DataTable: React.FC<DataTableProps> = ({
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const categories = ['all', ...Array.from(new Set(data.map(item => item.category)))];
+  // Always include 'all' and ensure unique categories
+  const allCategories = Array.from(new Set(data.map(item => item.category)));
 
   const filteredData = data.filter(item => {
     const matchesSearch = item.metric.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -137,14 +138,14 @@ const DataTable: React.FC<DataTableProps> = ({
             <Filter className="h-4 w-4" />
             <span>Filter</span>
             <Badge variant="secondary" className="ml-1">
-              {selectedCategory === 'all' ? 'All' : '1'}
+              {selectedCategory === '' ? 'All' : '1'}
             </Badge>
           </button>
         </div>
         
         {showFilters && (
           <CategoryFilter
-            categories={categories}
+            categories={allCategories}
             selectedCategory={selectedCategory}
             onSelectCategory={onSelectCategory}
           />

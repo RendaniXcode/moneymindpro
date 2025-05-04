@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -22,9 +21,9 @@ const Dashboard = () => {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Query params for the API
+  // Query params for the API - only include category if it's not empty
   const queryParams = {
-    ...(selectedCategory ? { category: selectedCategory } : {}),
+    ...(selectedCategory !== '' ? { category: selectedCategory } : {}),
     ...(searchMetric ? { metric: searchMetric } : {}),
     ...(minValue ? { minValue: parseFloat(minValue) } : {}),
     ...(maxValue ? { maxValue: parseFloat(maxValue) } : {})

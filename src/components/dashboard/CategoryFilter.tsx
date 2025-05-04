@@ -19,7 +19,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
   className
 }) => {
   const getCategoryLabel = (category: string) => {
-    return category.replace('_', ' ');
+    return category === 'all' ? 'All Categories' : category.replace(/_/g, ' ');
   };
 
   const getCategoryColor = (category: string) => {
@@ -38,7 +38,20 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap gap-2">
-        {categories.map((category) => (
+        {/* Ensure "all" is always the first option */}
+        <Badge
+          key="all"
+          onClick={() => onSelectCategory('')}
+          className={cn(
+            "cursor-pointer hover:opacity-80 transition-opacity",
+            getCategoryColor('all'),
+            selectedCategory === '' ? "ring-1 ring-black ring-offset-1" : ""
+          )}
+        >
+          All Categories
+        </Badge>
+        
+        {categories.filter(category => category !== 'all').map((category) => (
           <Badge
             key={category}
             onClick={() => onSelectCategory(category)}
