@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import MetricCard from '@/components/dashboard/MetricCard';
@@ -7,27 +7,40 @@ import MetricChart from '@/components/dashboard/MetricChart';
 import DataTable from '@/components/dashboard/DataTable';
 import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import InsightsCard from '@/components/dashboard/InsightsCard';
+import { toast } from '@/components/ui/use-toast';
+import { useFinancialData, extractFinancialRatios, getTrendData } from '@/hooks/useFinancialData';
 import { 
-  financialRatios, 
-  categoryChartData, 
-  profitabilityTrend, 
-  liquidityTrend, 
-  solvencyTrend,
-  yearlyProfitabilityTrend,
-  yearlyLiquidityTrend,
-  yearlySolvencyTrend,
-  fiveYearProfitabilityTrend,
-  fiveYearLiquidityTrend,
-  fiveYearSolvencyTrend,
-  keyInsights,
-  recommendations
+  financialRatios as mockFinancialRatios, 
+  profitabilityTrend as mockProfitabilityTrend,
+  liquidityTrend as mockLiquidityTrend,
+  solvencyTrend as mockSolvencyTrend,
+  yearlyProfitabilityTrend as mockYearlyProfitabilityTrend,
+  yearlyLiquidityTrend as mockYearlyLiquidityTrend,
+  yearlySolvencyTrend as mockYearlySolvencyTrend,
+  fiveYearProfitabilityTrend as mockFiveYearProfitabilityTrend,
+  fiveYearLiquidityTrend as mockFiveYearLiquidityTrend,
+  fiveYearSolvencyTrend as mockFiveYearSolvencyTrend,
+  keyInsights as mockKeyInsights,
+  recommendations as mockRecommendations
 } from '@/data/financialData';
-import { Card, CardContent } from '@/components/ui/card';
 
 const Index = () => {
   const [timeRange, setTimeRange] = useState('quarterly');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [companyId] = useState('multichoice-group');
+  const [year] = useState('2024');
   
+  // Fetch financial data
+  const { data: financialData, isLoading, error } = useFinancialData({
+    companyId,
+    year,
+  });
+
+  // If data is loading or there's an error, use mock data
+  const financialRatios = financialData ? extractFinancialRatios(financialData) : mockFinancialRatios;
+  const keyInsights = financialData?.report?.key_insights || mockKeyInsights;
+  const recommendations = financialData?.report?.recommendations || mockRecommendations;
+
   // Get latest ratio value
   const getLatestRatio = (metricName: string) => {
     const ratio = financialRatios.find(r => r.metric === metricName);
@@ -36,36 +49,45 @@ const Index = () => {
 
   // Function to get data based on time range
   const getChartData = (type: string) => {
-    // Select the appropriate data based on the time range
+    // Try to get data from API response first
+    if (financialData) {
+      return getTrendData(financialData, type, timeRange);
+    }
+    
+    // Fall back to mock data if API data is not available
     switch (type) {
       case 'profitability':
         return timeRange === 'quarterly' 
-          ? profitabilityTrend 
+          ? mockProfitabilityTrend 
           : timeRange === 'yearly' 
-            ? yearlyProfitabilityTrend 
-            : fiveYearProfitabilityTrend;
+            ? mockYearlyProfitabilityTrend 
+            : mockFiveYearProfitabilityTrend;
       case 'liquidity':
         return timeRange === 'quarterly' 
-          ? liquidityTrend 
+          ? mockLiquidityTrend 
           : timeRange === 'yearly' 
-            ? yearlyLiquidityTrend 
-            : fiveYearLiquidityTrend;
+            ? mockYearlyLiquidityTrend 
+            : mockFiveYearLiquidityTrend;
       case 'solvency':
         return timeRange === 'quarterly' 
-          ? solvencyTrend 
+          ? mockSolvencyTrend 
           : timeRange === 'yearly' 
-            ? yearlySolvencyTrend 
-            : fiveYearSolvencyTrend;
+            ? mockYearlySolvencyTrend 
+            : mockFiveYearSolvencyTrend;
       default:
-        return profitabilityTrend;
+        return mockProfitabilityTrend;
     }
   };
 
   return (
     <DashboardLayout>
       <DashboardHeader 
-        title="MultiChoice Group Financial Dashboard" 
-        subtitle={`Financial Analysis & Key Performance Metrics - 2024 | Generated: ${new Date().toLocaleDateString()}`} 
+        title={`${financialData?.company || 'MultiChoice Group'} Financial Dashboard`}
+        subtitle={`Financial Analysis & Key Performance Metrics - ${year} | Generated: ${
+          financialData?.generated_at 
+            ? new Date(financialData.generated_at).toLocaleDateString() 
+            : new Date().toLocaleDateString()
+        }`} 
       />
 
       <div className="flex flex-wrap justify-between items-center mb-6">
@@ -73,37 +95,48 @@ const Index = () => {
         <TimeRangeSelector 
           value={timeRange}
           onChange={setTimeRange}
-          className="w-[180px]"
         />
       </div>
+      
+      {isLoading && (
+        <div className="text-center py-8 text-muted-foreground">
+          Loading financial data...
+        </div>
+      )}
+      
+      {error && !isLoading && (
+        <div className="text-center py-8 text-red-500">
+          Error loading data. Using cached data instead.
+        </div>
+      )}
       
       {/* Key Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-fade-in">
         <MetricCard 
           title="Current Ratio" 
           value={getLatestRatio('current_ratio')}
-          description="Strong short-term liquidity"
+          description="Short-term liquidity"
           trend="up"
           trendValue="+0.10"
         />
         <MetricCard 
           title="Gross Profit Margin" 
           value={`${getLatestRatio('gross_profit_margin')}%`}
-          description="Healthy core profitability"
+          description="Core profitability"
           trend="down"
           trendValue="-1.1%"
         />
         <MetricCard 
           title="Debt to Equity" 
           value={getLatestRatio('debt_to_equity_ratio')}
-          description="Conservative leverage"
+          description="Leverage ratio"
           trend="up"
           trendValue="+0.03"
         />
         <MetricCard 
           title="Return on Equity" 
           value={`${getLatestRatio('return_on_equity')}%`}
-          description="Below industry average"
+          description="Shareholder returns"
           trend="down"
           trendValue="-2.8%"
         />

@@ -34,21 +34,23 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({ value, onChange, 
         ))}
       </div>
       
-      <Select value={value} onValueChange={onChange} className="sm:hidden">
-        <SelectTrigger className={className}>
-          <SelectValue placeholder="Select time period" />
-        </SelectTrigger>
-        <SelectContent>
-          {timeRanges.map((range) => (
-            <SelectItem key={range.value} value={range.value}>
-              <div className="flex items-center">
-                {range.icon}
-                <span>{range.label}</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="sm:hidden">
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select time period" />
+          </SelectTrigger>
+          <SelectContent>
+            {timeRanges.map((range) => (
+              <SelectItem key={range.value} value={range.value}>
+                <div className="flex items-center">
+                  {range.icon}
+                  <span>{range.label}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 };
