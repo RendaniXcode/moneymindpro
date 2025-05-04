@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { ChartBar, AreaChart, Database, Upload, DollarSign } from "lucide-react";
+import { ChartBar, AreaChart, Database, DollarSign, Home } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import FileUploadButton from '@/components/dashboard/FileUploadButton';
 
@@ -26,15 +26,24 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onUploadComplete })
   return (
     <Sidebar className="bg-[#003366] text-white">
       <SidebarHeader className="p-4 bg-[#003366] text-white border-b border-blue-800">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <DollarSign className="h-6 w-6" />
           <h1 className="font-bold text-lg">MoneyMind Pro</h1>
-        </div>
+        </Link>
         <SidebarTrigger />
       </SidebarHeader>
       
       <SidebarContent className="pt-4 bg-[#003366]">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={location.pathname === '/'} className="text-white hover:bg-blue-800">
+              <Link to="/" className="flex items-center gap-3">
+                <Home className="h-4 w-4" />
+                <span>Home</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={location.pathname === '/dashboard'} className="text-white hover:bg-blue-800">
               <Link to="/dashboard" className="flex items-center gap-3">
