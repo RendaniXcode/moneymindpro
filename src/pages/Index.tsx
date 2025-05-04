@@ -261,29 +261,14 @@ const Index = () => {
         </div>
       )}
       
-      {/* Summary Cards with Status */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <MetricCard 
-          title="Total Records" 
-          value={financialRatios.length.toString()}
-          status="declined"
-          subtitle="Financial ratios"
-          highlights="3 Highlights to summarize the reason why it was Declined"
-        />
-        
-        <MetricCard 
-          title="Categories" 
-          value={categories.length.toString()}
-          status="approved"
-          subtitle="Ratio categories"
-          highlights="3 Highlights to summarize the reason why it was approve"
-        />
-        
+      {/* Summary Cards with Status - removed Total Records and Categories */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
         <MetricCard 
           title="Current Filter" 
           value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
           description="Applied filter"
           subtitle="Small Executive SUMMARY"
+          status="neutral"
         />
       </div>
       
