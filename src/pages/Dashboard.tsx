@@ -4,10 +4,10 @@ import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { processS3UploadedData } from '@/hooks/useFinancialData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DataTable } from '@/components/dashboard/DataTable';
-import { MetricCard } from '@/components/dashboard/MetricCard';
-import { InsightsCard } from '@/components/dashboard/InsightsCard';
-import { CategoryFilter } from '@/components/dashboard/CategoryFilter';
+import DataTable from '@/components/dashboard/DataTable';
+import MetricCard from '@/components/dashboard/MetricCard';
+import InsightsCard from '@/components/dashboard/InsightsCard';
+import CategoryFilter from '@/components/dashboard/CategoryFilter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 
