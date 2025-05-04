@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import MetricCard from '@/components/dashboard/MetricCard';
@@ -7,6 +7,8 @@ import MetricChart from '@/components/dashboard/MetricChart';
 import DataTable from '@/components/dashboard/DataTable';
 import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import InsightsCard from '@/components/dashboard/InsightsCard';
+import FileUploadButton from '@/components/dashboard/FileUploadButton';
+import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/use-toast';
 import { useFinancialData, extractFinancialRatios, getTrendData } from '@/hooks/useFinancialData';
 import { 
@@ -30,11 +32,34 @@ const Index = () => {
   const [companyId] = useState('multichoice-group');
   const [year] = useState('2024');
   
+  // State for uploaded financial data
+  const [uploadedData, setUploadedData] = useState<any>(null);
+  
   // Fetch financial data
-  const { data: financialData, isLoading, error } = useFinancialData({
+  const { data: apiFinancialData, isLoading, error, refetch } = useFinancialData({
     companyId,
     year,
   });
+
+  // Use uploaded data if available, otherwise use API data
+  const financialData = uploadedData || apiFinancialData;
+
+  // Handle file upload completion
+  const handleUploadComplete = useCallback((data: any) => {
+    if (data && data.report) {
+      setUploadedData(data);
+      toast({
+        title: "Data Loaded",
+        description: `Financial data for ${data.company || 'Unknown Company'} has been loaded.`,
+      });
+    } else {
+      toast({
+        title: "Invalid Data Format",
+        description: "The uploaded file doesn't contain valid financial report data.",
+        variant: "destructive",
+      });
+    }
+  }, []);
 
   // If data is loading or there's an error, use mock data
   const financialRatios = financialData ? extractFinancialRatios(financialData) : mockFinancialRatios;
@@ -91,22 +116,45 @@ const Index = () => {
       />
 
       <div className="flex flex-wrap justify-between items-center mb-6">
-        <h3 className="text-lg font-medium">Dashboard Overview</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-medium">Dashboard Overview</h3>
+          <FileUploadButton onUploadComplete={handleUploadComplete} />
+        </div>
         <TimeRangeSelector 
           value={timeRange}
           onChange={setTimeRange}
         />
       </div>
       
-      {isLoading && (
+      {isLoading && !uploadedData && (
         <div className="text-center py-8 text-muted-foreground">
           Loading financial data...
         </div>
       )}
       
-      {error && !isLoading && (
+      {error && !isLoading && !uploadedData && (
         <div className="text-center py-8 text-red-500">
           Error loading data. Using cached data instead.
+        </div>
+      )}
+      
+      {/* Display upload source if data came from upload */}
+      {uploadedData && (
+        <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-3 rounded mb-6 flex items-center justify-between">
+          <div>
+            <p className="font-medium">Using uploaded financial data</p>
+            <p className="text-sm">Showing data for {uploadedData.company || 'Unknown Company'}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              setUploadedData(null);
+              refetch();
+            }}
+          >
+            Reset to API Data
+          </Button>
         </div>
       )}
       

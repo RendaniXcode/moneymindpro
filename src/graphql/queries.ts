@@ -1,6 +1,15 @@
 
 import { gql } from '@apollo/client';
 
+export const GET_API_STATUS = gql`
+  query GetApiStatus {
+    getApiStatus {
+      status
+      version
+    }
+  }
+`;
+
 export const GET_FINANCIAL_DATA = gql`
   query GetFinancialData($companyId: ID!, $year: String!) {
     getFinancialReport(companyId: $companyId, year: $year) {
@@ -125,6 +134,17 @@ export const GET_FINANCIAL_DATA = gql`
         debt_equity
         interest_coverage
       }
+    }
+  }
+`;
+
+// New mutation for uploading financial data
+export const UPLOAD_FINANCIAL_DATA = gql`
+  mutation UploadFinancialData($input: FinancialDataInput!) {
+    uploadFinancialData(input: $input) {
+      success
+      message
+      reportId
     }
   }
 `;
