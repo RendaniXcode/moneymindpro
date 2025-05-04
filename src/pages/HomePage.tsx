@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-const Index = () => {
+const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="container mx-auto py-12 px-4">
@@ -140,5 +139,4 @@ const Index = () => {
   );
 };
 
-export default Index;
-```
+export default HomePage;
