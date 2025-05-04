@@ -34,11 +34,11 @@ const MetricCard: React.FC<MetricCardProps> = ({
       status === 'declined' && "border-red-500 bg-red-50",
       className
     )}>
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-2">
+      <CardContent className="p-4">
+        <div className="flex flex-col gap-1">
           {status !== 'neutral' && (
             <div className={cn(
-              "font-bold text-lg mb-1",
+              "font-bold text-base mb-1",
               status === 'approved' && "text-green-600",
               status === 'declined' && "text-red-600"
             )}>
@@ -46,9 +46,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
             </div>
           )}
           
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-bold">{value}</h3>
+            <h3 className="text-2xl font-bold">{value}</h3>
             {trend && trendValue && (
               <div className={cn(
                 "flex items-center text-sm",
@@ -64,15 +64,15 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
           
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           )}
           
           {description && (
-            <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           )}
           
           {highlights && (
-            <div className="mt-4 text-sm">
+            <div className="mt-2 text-xs">
               <p className="text-orange-600">{highlights}</p>
             </div>
           )}

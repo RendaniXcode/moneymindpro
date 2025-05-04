@@ -194,13 +194,44 @@ const Index = () => {
           </div>
         </div>
         
-        <div className="mt-4 flex gap-2">
-          <Button onClick={handleSearch} variant="blue">
-            Apply Filters
-          </Button>
-          <Button onClick={handleReset} variant="outline">
-            Reset
-          </Button>
+        <div className="mt-4 flex flex-wrap items-start gap-4">
+          <div className="flex gap-2">
+            <Button onClick={handleSearch} variant="blue">
+              Apply Filters
+            </Button>
+            <Button onClick={handleReset} variant="outline">
+              Reset
+            </Button>
+          </div>
+          
+          {/* Metric Cards now in the same row */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <MetricCard 
+              title="Total Records" 
+              value={financialRatios.length.toString()}
+              status="declined"
+              subtitle="Financial ratios"
+              highlights="3 Highlights to summarize the reason why it was Declined"
+              className="h-full"
+            />
+            
+            <MetricCard 
+              title="Categories" 
+              value={categories.length.toString()}
+              status="approved"
+              subtitle="Ratio categories"
+              highlights="3 Highlights to summarize the reason why it was approve"
+              className="h-full"
+            />
+            
+            <MetricCard 
+              title="Current Filter" 
+              value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
+              description="Applied filter"
+              subtitle="Small Executive SUMMARY"
+              className="h-full"
+            />
+          </div>
         </div>
       </div>
       
@@ -235,32 +266,6 @@ const Index = () => {
           </Button>
         </div>
       )}
-      
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <MetricCard 
-          title="Total Records" 
-          value={financialRatios.length.toString()}
-          status="declined"
-          subtitle="Financial ratios"
-          highlights="3 Highlights to summarize the reason why it was Declined"
-        />
-        
-        <MetricCard 
-          title="Categories" 
-          value={categories.length.toString()}
-          status="approved"
-          subtitle="Ratio categories"
-          highlights="3 Highlights to summarize the reason why it was approve"
-        />
-        
-        <MetricCard 
-          title="Current Filter" 
-          value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
-          description="Applied filter"
-          subtitle="Small Executive SUMMARY"
-        />
-      </div>
       
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
