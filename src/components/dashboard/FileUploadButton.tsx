@@ -221,7 +221,7 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="file">Financial Statement File</Label>
+            <Label htmlFor="file" variant="highlighted" size="lg" className="mb-1">Financial Statement File</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="file"
