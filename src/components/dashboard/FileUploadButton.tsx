@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Upload, FileUp } from "lucide-react";
@@ -203,12 +202,11 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button 
-          variant="outline" 
-          className={`flex items-center gap-2 ${className}`}
+          className={`w-full flex items-center justify-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white py-3 ${className}`}
           onClick={() => setIsOpen(true)}
         >
-          <Upload className="h-4 w-4" />
-          <span>Upload Statements</span>
+          <Upload className="h-5 w-5" />
+          <span className="text-base">Upload Statements</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

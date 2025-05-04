@@ -67,7 +67,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onUploadComplete })
         
         <SidebarSeparator className="my-4" />
         
-        <div className="px-4">
+        <div className="px-4 mt-2">
           <FileUploadButton 
             onUploadComplete={onUploadComplete} 
             className="w-full justify-center"
