@@ -1,5 +1,4 @@
-import { S3Client, ListObjectsCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
-import { Upload } from "@aws-sdk/lib-storage";
+import { S3Client, ListObjectsCommand, ListObjectsV2Command, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
 interface S3Config {
   albumBucketName: string;
@@ -35,14 +34,14 @@ export class S3Service {
       secretAccessKey,
     } = this.config;
 
-    // Initialize S3 client
+    // Initialize S3 client without checksum configuration
     this.s3Client = new S3Client({
       region: bucketRegion,
       credentials: {
         accessKeyId,
         secretAccessKey,
       },
-      useAccelerateEndpoint: this.useAcceleration,
+      useAccelerateEndpoint: this.useAcceleration
     });
 
     console.log(`S3 client initialized. Transfer Acceleration: ${this.useAcceleration ? 'Enabled' : 'Disabled'}`);
@@ -51,39 +50,48 @@ export class S3Service {
     return this.s3Client;
   }
 
-  // Generic file upload method with progress tracking
+  // Simple file upload method for files up to 20MB
   async uploadFile(file: File, path: string = '', onProgress?: (progress: number) => void) {
     const key = path ? `${path}/${file.name}` : file.name;
     console.log(`Preparing to upload file: ${file.name} (${file.size} bytes) to ${this.albumBucketName}/${key}`);
 
     try {
       const s3Client = await this.initializeS3();
-      console.log(`S3 client initialized, starting upload to ${this.albumBucketName}/${key}`);
+      console.log(`S3 client initialized, starting basic upload to ${this.albumBucketName}/${key}`);
 
-      const upload = new Upload({
-        client: s3Client,
-        params: {
-          Bucket: this.albumBucketName,
-          Key: key,
-          Body: file,
-          ContentType: file.type || 'application/octet-stream',
-          ACL: 'public-read',
-        },
-      });
-
-      // Register progress handler
+      // Start progress indication
       if (onProgress) {
-        upload.on('httpUploadProgress', (progress) => {
-          if (progress.loaded && progress.total) {
-            console.log(`Upload progress: ${progress.loaded}/${progress.total} bytes`);
-            const percentage = Math.round((progress.loaded / progress.total) * 100);
-            onProgress(percentage);
-          }
-        });
+        onProgress(10);
       }
 
-      console.log('Starting S3 upload...');
-      const result = await upload.done();
+      // Read file as ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+
+      // Update progress after file is read
+      if (onProgress) {
+        onProgress(30);
+      }
+
+      // Create a PutObjectCommand with the binary data
+      const putObjectCommand = new PutObjectCommand({
+        Bucket: this.albumBucketName,
+        Key: key,
+        Body: new Uint8Array(arrayBuffer),
+        ContentType: file.type || 'application/octet-stream',
+        ACL: 'public-read'
+      });
+
+      if (onProgress) {
+        onProgress(50);
+      }
+
+      console.log('Starting S3 upload using PutObjectCommand with binary data...');
+      const result = await s3Client.send(putObjectCommand);
+
+      // Upload complete
+      if (onProgress) {
+        onProgress(100);
+      }
 
       console.log(`Upload completed successfully`);
 
@@ -104,7 +112,77 @@ export class S3Service {
     }
   }
 
-  // ... other methods (listAlbums, createAlbum, etc.) remain the same but without Cognito references
+  // List files in a folder
+  async listFiles(folder = '') {
+    try {
+      return await this.listFilesV2(folder);
+    } catch (error) {
+      console.error("Error in listFiles:", error);
+      throw error;
+    }
+  }
+
+  // More robust implementation using AWS SDK v3
+  async listFilesV2(folder = '') {
+    try {
+      console.log(`Listing files in ${this.albumBucketName}/${folder}`);
+      const s3Client = await this.initializeS3();
+
+      // Prepare the parameters for listing objects
+      const params = {
+        Bucket: this.albumBucketName,
+        Prefix: folder ? `${folder}/` : '',
+        MaxKeys: 1000
+      };
+
+      console.log('List params:', JSON.stringify(params));
+
+      // Create the list objects command
+      const command = new ListObjectsV2Command(params);
+
+      // Execute the command
+      console.log('Executing ListObjectsV2Command...');
+      const response = await s3Client.send(command);
+      console.log('ListObjectsV2Command executed successfully');
+
+      const filesCount = response.Contents?.length || 0;
+      console.log(`Found ${filesCount} files in ${folder || 'root'}`);
+
+      if (filesCount === 0) {
+        return [];
+      }
+
+      // Format the response
+      return (response.Contents || []).map(item => {
+        // Ensure Key exists before processing
+        const key = item.Key || '';
+        const name = key.split('/').pop() || '';
+        const size = item.Size || 0;
+
+        // Generate URL using the correct region and acceleration settings
+        const url = this.useAcceleration
+            ? `https://${this.albumBucketName}.s3-accelerate.amazonaws.com/${key}`
+            : `https://${this.albumBucketName}.s3.${this.config.bucketRegion}.amazonaws.com/${key}`;
+
+        return {
+          key,
+          name,
+          lastModified: item.LastModified,
+          size,
+          url
+        };
+      });
+    } catch (error) {
+      console.error(`Error listing files in ${folder}:`, error);
+      // More detailed error reporting
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      throw error;
+    }
+  }
 }
 
 // Debug flag
@@ -158,78 +236,4 @@ const createS3Service = () => {
   });
 };
 
-  import { ListObjectsV2Command } from '@aws-sdk/client-s3';
-  
-  // Add both methods for backward compatibility
-  S3Service.prototype.listFiles = async function(folder = '') {
-    try {
-      return await this.listFilesV2(folder);
-    } catch (error) {
-      console.error("Error in listFiles:", error);
-      throw error;
-    }
-  };
-  
-  // More robust implementation using AWS SDK v3
-  S3Service.prototype.listFilesV2 = async function(folder = '') {
-    try {
-      console.log(`Listing files in ${this.albumBucketName}/${folder}`);
-      const s3Client = await this.initializeS3();
-      
-      // Prepare the parameters for listing objects
-      const params = {
-        Bucket: this.albumBucketName,
-        Prefix: folder ? `${folder}/` : '',
-        MaxKeys: 1000
-      };
-      
-      console.log('List params:', JSON.stringify(params));
-      
-      // Create the list objects command
-      const command = new ListObjectsV2Command(params);
-      
-      // Execute the command
-      console.log('Executing ListObjectsV2Command...');
-      const response = await s3Client.send(command);
-      console.log('ListObjectsV2Command executed successfully');
-      
-      const filesCount = response.Contents?.length || 0;
-      console.log(`Found ${filesCount} files in ${folder || 'root'}`);
-      
-      if (filesCount === 0) {
-        return [];
-      }
-      
-      // Format the response
-      return (response.Contents || []).map(item => {
-        // Ensure Key exists before processing
-        const key = item.Key || '';
-        const name = key.split('/').pop() || '';
-        const size = item.Size || 0;
-        
-        // Generate URL using the correct region and acceleration settings
-        const url = this.useAcceleration
-          ? `https://${this.albumBucketName}.s3-accelerate.amazonaws.com/${key}`
-          : `https://${this.albumBucketName}.s3.${this.config.bucketRegion}.amazonaws.com/${key}`;
-        
-        return {
-          key,
-          name,
-          lastModified: item.LastModified,
-          size,
-          url
-        };
-      });
-    } catch (error) {
-      console.error(`Error listing files in ${folder}:`, error);
-      // More detailed error reporting
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-    throw error;
-  }
-  };
-  
 export const s3Service = createS3Service();

@@ -20,19 +20,45 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Define the maximum file size (20MB in bytes)
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      
+      // Check if file size exceeds limit
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        toast({
+          title: "File too large",
+          description: "Please select a file smaller than 20MB",
+          variant: "destructive",
+        });
+        e.target.value = ''; // Reset the input
+        return;
+      }
+      
+      setFile(selectedFile);
       setUploadProgress(0);
       setStatus('idle');
     }
   };
-
+  
   const handleUpload = async () => {
     if (!file) {
       toast({
         title: "No file selected",
         description: "Please select a file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Double-check file size before uploading
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 20MB",
         variant: "destructive",
       });
       return;
@@ -80,18 +106,32 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
       console.error("Error uploading file:", error);
       setStatus('error');
       
-      // Check for CORS-related errors
+      // Check for various common errors
       const isCorsError = 
         error instanceof Error && 
         (error.message.includes("NetworkError") || 
          error.message.includes("Network Error") ||
          error.message.includes("CORS"));
+         
+      const isChecksumError = 
+        error instanceof Error && 
+        (error.message.includes("checksum") ||
+         error.message.includes("readableStream") ||
+         error.message.includes("getReader"));
+      
+      let errorMessage = "There was a problem uploading your file.";
+      
+      if (isCorsError) {
+        errorMessage = "CORS error: S3 bucket is not configured to accept uploads from this domain. Please check README.md for CORS configuration instructions.";
+      } else if (isChecksumError) {
+        errorMessage = "The file couldn't be uploaded due to a compatibility issue with the AWS SDK. Please try a different file or contact support.";
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       
       toast({
         title: "Upload Failed",
-        description: isCorsError 
-          ? "CORS error: S3 bucket is not configured to accept uploads from this domain. Please check README.md for CORS configuration instructions."
-          : (error instanceof Error ? error.message : "There was a problem uploading your file."),
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -112,7 +152,7 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
           <DialogDescription>
-            Select a file to upload for financial analysis.
+            Select a file to upload for financial analysis. Maximum file size: 20MB.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -129,7 +169,9 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
             </div>
             {file && (
               <p className="text-sm text-muted-foreground">
-                Selected file: {file.name} ({Math.round(file.size / 1024)} KB)
+                Selected file: {file.name} ({file.size > 1024 * 1024 
+                  ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` 
+                  : `${Math.round(file.size / 1024)} KB`})
               </p>
             )}
 
