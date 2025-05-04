@@ -1,4 +1,10 @@
-import { S3Client, ListObjectsCommand, ListObjectsV2Command, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand
+} from "@aws-sdk/client-s3";
 
 interface S3Config {
   albumBucketName: string;
@@ -180,6 +186,207 @@ export class S3Service {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
       }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a file from S3
+   * @param key Full path/key of the file to delete
+   * @returns Promise that resolves when the file is deleted
+   */
+  async deleteFile(key: string): Promise<void> {
+    try {
+      console.log(`Deleting file ${key} from bucket ${this.albumBucketName}`);
+      const s3Client = await this.initializeS3();
+
+      // Create a delete object command
+      const command = new DeleteObjectCommand({
+        Bucket: this.albumBucketName,
+        Key: key
+      });
+
+      // Send the command to S3
+      await s3Client.send(command);
+      console.log(`Successfully deleted file ${key}`);
+    } catch (error) {
+      console.error(`Error deleting file ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get metadata for a specific file
+   * @param key Full path/key of the file
+   * @returns Promise that resolves with the file metadata
+   */
+  async getFile(key: string) {
+    try {
+      console.log(`Getting file ${key} from bucket ${this.albumBucketName}`);
+      const s3Client = await this.initializeS3();
+
+      // Create a head object command to get metadata
+      const command = new HeadObjectCommand({
+        Bucket: this.albumBucketName,
+        Key: key
+      });
+
+      // Send the command to S3
+      const response = await s3Client.send(command);
+
+      // Generate the file URL
+      const url = this.useAcceleration
+          ? `https://${this.albumBucketName}.s3-accelerate.amazonaws.com/${key}`
+          : `https://${this.albumBucketName}.s3.${this.config.bucketRegion}.amazonaws.com/${key}`;
+
+      return {
+        key,
+        name: key.split('/').pop() || '',
+        lastModified: response.LastModified,
+        size: response.ContentLength || 0,
+        contentType: response.ContentType,
+        url
+      };
+    } catch (error) {
+      console.error(`Error getting file ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a folder in S3 (technically just creates an empty object with the folder name)
+   * @param path Path/folder name to create
+   * @returns Promise that resolves when the folder is created
+   */
+  async createFolder(path: string): Promise<void> {
+    if (!path.endsWith('/')) {
+      path = `${path}/`;
+    }
+
+    try {
+      console.log(`Creating folder ${path} in bucket ${this.albumBucketName}`);
+      const s3Client = await this.initializeS3();
+
+      // Create a put object command with an empty body
+      const command = new PutObjectCommand({
+        Bucket: this.albumBucketName,
+        Key: path,
+        Body: '',
+        ContentType: 'application/x-directory'
+      });
+
+      // Send the command to S3
+      await s3Client.send(command);
+      console.log(`Successfully created folder ${path}`);
+    } catch (error) {
+      console.error(`Error creating folder ${path}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * List folders (directories) at the specified path
+   * @param prefix The prefix/path to list folders from
+   * @returns Promise that resolves with an array of folder names
+   */
+  async listFolders(prefix: string = ''): Promise<string[]> {
+    try {
+      console.log(`Listing folders in ${this.albumBucketName}/${prefix}`);
+      const s3Client = await this.initializeS3();
+
+      // Ensure prefix ends with '/' if not empty
+      if (prefix && !prefix.endsWith('/')) {
+        prefix = `${prefix}/`;
+      }
+
+      const command = new ListObjectsV2Command({
+        Bucket: this.albumBucketName,
+        Prefix: prefix,
+        Delimiter: '/'
+      });
+
+      const response = await s3Client.send(command);
+
+      // Extract common prefixes (folders)
+      const folders = (response.CommonPrefixes || []).map(prefix => {
+        const folderPath = prefix.Prefix || '';
+        // Remove trailing slash and get the last segment
+        return folderPath.replace(/\/$/, '').split('/').pop() || '';
+      });
+
+      console.log(`Found ${folders.length} folders in ${prefix || 'root'}`);
+      return folders;
+    } catch (error) {
+      console.error(`Error listing folders in ${prefix}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * For compatibility with old code referencing listPhotos
+   * Just a wrapper around listFiles
+   */
+  async listPhotos(folder: string = '') {
+    return this.listFiles(folder);
+  }
+
+  /**
+   * For compatibility with old code referencing deletePhoto
+   * Just a wrapper around deleteFile
+   */
+  async deletePhoto(key: string) {
+    return this.deleteFile(key);
+  }
+
+  /**
+   * For compatibility with old code referencing addPhoto
+   * Just a wrapper around uploadFile
+   */
+  async addPhoto(file: File, folder: string = '') {
+    return this.uploadFile(file, folder);
+  }
+
+  /**
+   * For compatibility with old code referencing listAlbums
+   * Just a wrapper around listFolders
+   */
+  async listAlbums() {
+    return this.listFolders();
+  }
+
+  /**
+   * For compatibility with old code referencing createAlbum
+   * Just a wrapper around createFolder
+   */
+  async createAlbum(albumName: string) {
+    return this.createFolder(albumName);
+  }
+
+  /**
+   * For compatibility with old code referencing deleteAlbum
+   * Deletes a folder and all its contents
+   */
+  async deleteAlbum(albumName: string) {
+    try {
+      console.log(`Deleting album/folder ${albumName} and all contents`);
+      const s3Client = await this.initializeS3();
+
+      // First list all objects in the album/folder
+      const files = await this.listFiles(albumName);
+
+      // If there are files, delete them
+      if (files.length > 0) {
+        for (const file of files) {
+          await this.deleteFile(file.key);
+        }
+      }
+
+      // Finally delete the folder marker object if it exists
+      await this.deleteFile(`${albumName}/`);
+
+      console.log(`Successfully deleted album/folder ${albumName}`);
+    } catch (error) {
+      console.error(`Error deleting album/folder ${albumName}:`, error);
       throw error;
     }
   }
