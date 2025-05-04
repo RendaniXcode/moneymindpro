@@ -12,8 +12,6 @@ interface MetricCardProps {
   trendValue?: string;
   className?: string;
   status?: 'approved' | 'declined' | 'neutral';
-  subtitle?: string;
-  highlights?: string;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ 
@@ -23,9 +21,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   trend = 'neutral',
   trendValue,
   className,
-  status = 'neutral',
-  subtitle,
-  highlights
+  status = 'neutral'
 }) => {
   return (
     <Card className={cn(
@@ -63,18 +59,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
             )}
           </div>
           
-          {subtitle && (
-            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-          )}
-          
           {description && (
             <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-          )}
-          
-          {highlights && (
-            <div className="mt-2 text-xs">
-              <p className="text-orange-600">{highlights}</p>
-            </div>
           )}
         </div>
       </CardContent>

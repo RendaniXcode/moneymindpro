@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -209,14 +208,12 @@ const Index = () => {
             <MetricCard 
               title="Total Records" 
               value={financialRatios.length.toString()}
-              subtitle="Financial ratios"
               className="h-full"
             />
             
             <MetricCard 
               title="Categories" 
               value={categories.length.toString()}
-              subtitle="Ratio categories"
               className="h-full"
             />
             
@@ -230,6 +227,7 @@ const Index = () => {
         </div>
       </div>
       
+      {/* Loading and error states */}
       {isLoading && !uploadedData && (
         <div className="text-center py-8 text-muted-foreground">
           Loading financial data...
@@ -262,22 +260,18 @@ const Index = () => {
         </div>
       )}
       
-      {/* Summary Cards with Status - restored APPROVED/DECLINED cards */}
+      {/* Summary Cards with Status - without executive summary and highlights */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <MetricCard 
           title="Total Records" 
           value={financialRatios.length.toString()}
           status="declined"
-          subtitle="Small Executive SUMMARY"
-          highlights="3 Highlights to summarize the reason why it was Declined"
         />
         
         <MetricCard 
           title="Categories" 
           value={categories.length.toString()}
           status="approved"
-          subtitle="Small Executive SUMMARY"
-          highlights="3 Highlights to summarize the reason why it was approve"
         />
       </div>
       
