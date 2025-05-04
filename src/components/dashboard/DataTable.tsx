@@ -20,11 +20,16 @@ interface DataTableProps {
 
 const DataTable: React.FC<DataTableProps> = ({ data, className }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const filteredData = data.filter(item => 
-    item.metric.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const categories = ['all', ...Array.from(new Set(data.map(item => item.category)))];
+
+  const filteredData = data.filter(item => {
+    const matchesSearch = item.metric.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   // Function to get badge color based on category
   const getBadgeColor = (category: string) => {
@@ -59,13 +64,29 @@ const DataTable: React.FC<DataTableProps> = ({ data, className }) => {
 
   return (
     <div className={cn("bg-white rounded-md border", className)}>
-      <div className="p-4">
+      <div className="p-4 space-y-4">
         <Input
           placeholder="Search metrics or categories..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm"
         />
+        
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <Badge
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={cn(
+                "cursor-pointer hover:opacity-80 transition-opacity",
+                category === 'all' ? 'bg-slate-100 text-slate-800' : getBadgeColor(category),
+                selectedCategory === category ? "ring-1 ring-black ring-offset-1" : ""
+              )}
+            >
+              {category === 'all' ? 'All Categories' : category.replace('_', ' ')}
+            </Badge>
+          ))}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <Table>
