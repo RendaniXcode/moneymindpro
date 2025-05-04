@@ -16,7 +16,7 @@ export interface FinancialRatio {
   explanation: string;
 }
 
-interface DataTableProps {
+export interface DataTableProps {
   data: FinancialRatio[];
   selectedCategory?: string;
   onSelectCategory?: (category: string) => void;

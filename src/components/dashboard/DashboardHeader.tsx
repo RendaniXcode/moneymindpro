@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { CalendarRange, Download, RefreshCw } from "lucide-react";
+import { CalendarRange, RefreshCw, Download } from "lucide-react";
 
 interface DashboardHeaderProps {
   title: string;
