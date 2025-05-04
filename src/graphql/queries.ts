@@ -1,6 +1,9 @@
+// This file is kept for backward compatibility
+// We're now using the REST API directly in useFinancialData.ts
 
 import { gql } from '@apollo/client';
 
+// These queries are no longer used but kept for backward compatibility
 export const GET_API_STATUS = gql`
   query GetApiStatus {
     getApiStatus {

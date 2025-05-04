@@ -1,46 +1,27 @@
 
-import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from '@apollo/client';
+// This file is kept for backward compatibility 
+// We're now using the REST API directly in useFinancialData.ts
 
-// Initialize Apollo Client with more robust configuration
+import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client';
+
+// Initialize Apollo Client with basic configuration
+// This is only used as a fallback and is not actively used
 export const apolloClient = new ApolloClient({
   link: new HttpLink({
-    uri: 'https://your-appsync-endpoint.amazonaws.com/graphql',
+    uri: 'https://10o0oyafx1.execute-api.eu-west-1.amazonaws.com/prod/finalfuctionpoc',
     headers: {
-      'x-api-key': 'YOUR_API_KEY', // Replace with your actual API key in production
+      'Content-Type': 'application/json',
     },
   }),
-  cache: new InMemoryCache({
-    typePolicies: {
-      Query: {
-        fields: {
-          getFinancialReport: {
-            merge: true,
-          },
-          getTrendData: {
-            merge: true,
-          },
-        },
-      },
-    },
-  }),
-  defaultOptions: {
-    watchQuery: {
-      fetchPolicy: 'cache-and-network',
-    },
-    query: {
-      fetchPolicy: 'network-only',
-      errorPolicy: 'all',
-    },
-  },
+  cache: new InMemoryCache(),
 });
 
 // Helper function to validate API connectivity
 export const validateApiConnection = async () => {
   try {
-    const result = await apolloClient.query({
-      query: require('@/graphql/queries').GET_API_STATUS,
-    });
-    return { success: true, data: result.data };
+    const response = await fetch('https://10o0oyafx1.execute-api.eu-west-1.amazonaws.com/prod/finalfuctionpoc');
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
     console.error('API Connection Error:', error);
     return { 

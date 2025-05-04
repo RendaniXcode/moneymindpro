@@ -9,9 +9,8 @@ import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import InsightsCard from '@/components/dashboard/InsightsCard';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/use-toast';
-import { useFinancialData, extractFinancialRatios, getTrendData } from '@/hooks/useFinancialData';
+import { useFinancialData, extractFinancialRatios, getTrendData, formatCategoryName } from '@/hooks/useFinancialData';
 import { 
-  financialRatios as mockFinancialRatios, 
   profitabilityTrend as mockProfitabilityTrend,
   liquidityTrend as mockLiquidityTrend,
   solvencyTrend as mockSolvencyTrend,
@@ -28,16 +27,19 @@ import {
 const Index = () => {
   const [timeRange, setTimeRange] = useState('quarterly');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [companyId] = useState('multichoice-group');
-  const [year] = useState('2024');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [minValue, setMinValue] = useState<number | undefined>(undefined);
+  const [maxValue, setMaxValue] = useState<number | undefined>(undefined);
   
   // State for uploaded financial data
   const [uploadedData, setUploadedData] = useState<any>(null);
   
   // Fetch financial data
   const { data: apiFinancialData, isLoading, error, refetch } = useFinancialData({
-    companyId,
-    year,
+    category: selectedCategory !== 'all' ? selectedCategory : undefined,
+    metric: searchTerm || undefined,
+    minValue,
+    maxValue
   });
 
   // Use uploaded data if available, otherwise use API data
@@ -60,10 +62,23 @@ const Index = () => {
     }
   }, []);
 
+  const handleSearch = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  const handleReset = useCallback(() => {
+    setSelectedCategory('all');
+    setSearchTerm('');
+    setMinValue(undefined);
+    setMaxValue(undefined);
+    refetch();
+  }, [refetch]);
+
   // If data is loading or there's an error, use mock data
-  const financialRatios = financialData ? extractFinancialRatios(financialData) : mockFinancialRatios;
-  const keyInsights = financialData?.report?.key_insights || mockKeyInsights;
-  const recommendations = financialData?.report?.recommendations || mockRecommendations;
+  const financialRatios = financialData ? extractFinancialRatios(financialData) : [];
+  const categories = financialData?.categories || [];
+  const keyInsights = financialData?.insights || mockKeyInsights;
+  const recommendations = financialData?.recommendations || mockRecommendations;
 
   // Get latest ratio value
   const getLatestRatio = (metricName: string) => {
@@ -106,12 +121,8 @@ const Index = () => {
   return (
     <DashboardLayout onUploadComplete={handleUploadComplete}>
       <DashboardHeader 
-        title={`${financialData?.company || 'MultiChoice Group'} Financial Dashboard`}
-        subtitle={`Financial Analysis & Key Performance Metrics - ${year} | Generated: ${
-          financialData?.generated_at 
-            ? new Date(financialData.generated_at).toLocaleDateString() 
-            : new Date().toLocaleDateString()
-        }`} 
+        title={`Financial Dashboard`}
+        subtitle={`Financial Analysis & Key Performance Metrics - Generated: ${new Date().toLocaleDateString()}`} 
       />
 
       <div className="flex flex-wrap justify-between items-center mb-6">
@@ -122,6 +133,68 @@ const Index = () => {
           value={timeRange}
           onChange={setTimeRange}
         />
+      </div>
+      
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Filters</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <select 
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Categories</option>
+              {categories.map((category: string) => (
+                <option key={category} value={category}>{formatCategoryName(category)}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Metric</label>
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by metric name..." 
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Min Value</label>
+            <input 
+              type="number" 
+              value={minValue || ''}
+              onChange={(e) => setMinValue(e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="Minimum value" 
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max Value</label>
+            <input 
+              type="number" 
+              value={maxValue || ''}
+              onChange={(e) => setMaxValue(e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="Maximum value" 
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+        
+        <div className="mt-4 flex gap-2">
+          <Button onClick={handleSearch} variant="blue">
+            Apply Filters
+          </Button>
+          <Button onClick={handleReset} variant="outline">
+            Reset
+          </Button>
+        </div>
       </div>
       
       {isLoading && !uploadedData && (
@@ -156,35 +229,22 @@ const Index = () => {
         </div>
       )}
       
-      {/* Key Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-fade-in">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <MetricCard 
-          title="Current Ratio" 
-          value={getLatestRatio('current_ratio')}
-          description="Short-term liquidity"
-          trend="up"
-          trendValue="+0.10"
+          title="Total Records" 
+          value={financialRatios.length.toString()}
+          description="Financial ratios"
         />
         <MetricCard 
-          title="Gross Profit Margin" 
-          value={`${getLatestRatio('gross_profit_margin')}%`}
-          description="Core profitability"
-          trend="down"
-          trendValue="-1.1%"
+          title="Categories" 
+          value={categories.length.toString()}
+          description="Ratio categories"
         />
         <MetricCard 
-          title="Debt to Equity" 
-          value={getLatestRatio('debt_to_equity_ratio')}
-          description="Leverage ratio"
-          trend="up"
-          trendValue="+0.03"
-        />
-        <MetricCard 
-          title="Return on Equity" 
-          value={`${getLatestRatio('return_on_equity')}%`}
-          description="Shareholder returns"
-          trend="down"
-          trendValue="-2.8%"
+          title="Current Filter" 
+          value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
+          description="Applied filter"
         />
       </div>
       

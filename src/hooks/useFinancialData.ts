@@ -1,24 +1,42 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { GET_FINANCIAL_DATA } from '@/graphql/queries';
-import { apolloClient } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
 
 interface FinancialDataParams {
-  companyId: string;
-  year: string;
+  companyId?: string;
+  year?: string;
+  category?: string;
+  metric?: string;
+  minValue?: number;
+  maxValue?: number;
 }
 
-export const useFinancialData = ({ companyId, year }: FinancialDataParams) => {
+const API_ENDPOINT = 'https://10o0oyafx1.execute-api.eu-west-1.amazonaws.com/prod/finalfuctionpoc';
+
+export const useFinancialData = (params: FinancialDataParams = {}) => {
   return useQuery({
-    queryKey: ['financialData', companyId, year],
+    queryKey: ['financialData', params],
     queryFn: async () => {
       try {
-        const { data } = await apolloClient.query({
-          query: GET_FINANCIAL_DATA,
-          variables: { companyId, year },
-        });
-        return data.getFinancialReport;
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        
+        if (params.companyId) queryParams.append('company_id', params.companyId);
+        if (params.year) queryParams.append('year', params.year);
+        if (params.category) queryParams.append('category', params.category);
+        if (params.metric) queryParams.append('metric', params.metric);
+        if (params.minValue !== undefined) queryParams.append('min_value', params.minValue.toString());
+        if (params.maxValue !== undefined) queryParams.append('max_value', params.maxValue.toString());
+        
+        // Fetch data
+        const response = await fetch(`${API_ENDPOINT}?${queryParams}`);
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to fetch data');
+        }
+        
+        return result;
       } catch (error) {
         console.error('Error fetching financial data:', error);
         toast({
@@ -33,58 +51,45 @@ export const useFinancialData = ({ companyId, year }: FinancialDataParams) => {
   });
 };
 
-// Helper functions to get specific data from the financial report
+// Helper functions to transform API data into the format expected by components
 export const extractFinancialRatios = (data: any) => {
-  if (!data || !data.report || !data.report.financial_ratios) {
+  if (!data || !data.data) {
     return [];
   }
 
-  const { financial_ratios } = data.report;
-  const result = [];
-  let id = 1;
+  return data.data.map((item: any, index: number) => ({
+    id: index + 1,
+    category: item.Category,
+    metric: item.Metric,
+    value: item.Value,
+    explanation: item.Explanation
+  }));
+};
 
-  // Process each category of ratios
-  for (const [categoryKey, category] of Object.entries(financial_ratios)) {
-    for (const [metricKey, metric] of Object.entries(category as any)) {
-      result.push({
-        id: id++,
-        category: categoryKey,
-        metric: metricKey,
-        value: (metric as any).value,
-        explanation: (metric as any).explanation
-      });
-    }
-  }
+// Format helpers for display
+export const formatCategoryName = (category: string) => {
+  return category.split('_').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
+};
 
-  return result;
+export const formatMetricName = (metric: string) => {
+  return metric.split('_').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
 };
 
 export const getTrendData = (data: any, type: string, timeRange: string) => {
-  if (!data || !data.getTrendData) {
+  // Since the new API doesn't provide trend data in the same format,
+  // we'll continue using mock data for trends for now
+  // In a real scenario, you would make a separate API call for trend data
+  
+  if (!data) {
     return [];
   }
   
-  const trendData = data.getTrendData;
-  
-  if (type === 'profitability') {
-    return trendData.profitability_trends.filter((item: any) => 
-      timeRange === 'quarterly' ? item.name.includes('Q') :
-      timeRange === 'yearly' ? !item.name.includes('Q') :
-      true // 5year returns all
-    );
-  } else if (type === 'liquidity') {
-    return trendData.liquidity_trends.filter((item: any) => 
-      timeRange === 'quarterly' ? item.name.includes('Q') :
-      timeRange === 'yearly' ? !item.name.includes('Q') :
-      true // 5year returns all
-    );
-  } else if (type === 'solvency') {
-    return trendData.solvency_trends.filter((item: any) => 
-      timeRange === 'quarterly' ? item.name.includes('Q') :
-      timeRange === 'yearly' ? !item.name.includes('Q') :
-      true // 5year returns all
-    );
-  }
-  
+  // This is a placeholder that returns an empty array
+  // You would need to implement this based on how your API returns trend data
   return [];
 };
+

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from '@/lib/utils';
 import { Search, Filter } from 'lucide-react';
 import CategoryFilter from './CategoryFilter';
+import { formatCategoryName, formatMetricName } from '@/hooks/useFinancialData';
 
 export interface FinancialRatio {
   id: number;
@@ -30,6 +31,8 @@ const DataTable: React.FC<DataTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const categories = ['all', ...Array.from(new Set(data.map(item => item.category)))];
 
@@ -39,6 +42,40 @@ const DataTable: React.FC<DataTableProps> = ({
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Sort the data if a sort field is specified
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aVal = a[sortField as keyof FinancialRatio];
+    let bVal = b[sortField as keyof FinancialRatio];
+    
+    // Handle numeric values
+    if (sortField === 'value') {
+      aVal = typeof aVal === 'string' ? 
+        parseFloat(aVal.toString().replace('%', '').replace('ZAR', '').replace(',', '')) : 
+        aVal;
+      bVal = typeof bVal === 'string' ? 
+        parseFloat(bVal.toString().replace('%', '').replace('ZAR', '').replace(',', '')) : 
+        bVal;
+    }
+    
+    if (sortDirection === 'asc') {
+      return aVal > bVal ? 1 : -1;
+    } else {
+      return aVal < bVal ? 1 : -1;
+    }
+  });
+
+  // Function to toggle sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   // Function to get badge color based on category
   const getBadgeColor = (category: string) => {
@@ -69,6 +106,15 @@ const DataTable: React.FC<DataTableProps> = ({
     }
     
     return 'metric-neutral';
+  };
+
+  // Function to format value for display
+  const formatValue = (value: string | number) => {
+    if (typeof value === 'string') {
+      if (value.includes('%')) return value;
+      if (value.includes('ZAR')) return value;
+    }
+    return value;
   };
 
   return (
@@ -108,26 +154,41 @@ const DataTable: React.FC<DataTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[200px]">Category</TableHead>
-              <TableHead>Metric</TableHead>
-              <TableHead className="w-[100px] text-right">Value</TableHead>
+              <TableHead 
+                className="w-[200px] cursor-pointer" 
+                onClick={() => handleSort('category')}
+              >
+                Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer" 
+                onClick={() => handleSort('metric')}
+              >
+                Metric {sortField === 'metric' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead 
+                className="w-[100px] text-right cursor-pointer" 
+                onClick={() => handleSort('value')}
+              >
+                Value {sortField === 'value' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableHead>
               <TableHead className="max-w-[500px]">Explanation</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredData.length > 0 ? (
-              filteredData.map((row) => (
+            {sortedData.length > 0 ? (
+              sortedData.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>
                     <Badge variant="outline" className={cn("font-normal", getBadgeColor(row.category))}>
-                      {row.category.replace(/_/g, ' ')}
+                      {formatCategoryName(row.category)}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">
-                    {row.metric.replace(/_/g, ' ')}
+                    {formatMetricName(row.metric)}
                   </TableCell>
                   <TableCell className={cn("text-right", getMetricStatus(row.metric, row.value))}>
-                    {typeof row.value === 'number' && row.metric.includes('margin') ? `${row.value}%` : row.value}
+                    {formatValue(row.value)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[500px]">
                     {row.explanation}
