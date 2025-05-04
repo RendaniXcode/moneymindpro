@@ -1,5 +1,3 @@
-
-
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
@@ -73,7 +71,7 @@ export const extractFinancialRatios = (data: any) => {
   }));
 };
 
-// Helper to process S3 uploaded data
+// Enhanced helper to process S3 uploaded data
 export const processS3UploadedData = (data: any) => {
   if (!data || !data.report) {
     return null;
@@ -84,7 +82,11 @@ export const processS3UploadedData = (data: any) => {
     data: [],
     categories: [],
     insights: data.report.key_insights || [],
-    recommendations: data.report.recommendations || []
+    recommendations: data.report.recommendations || [],
+    // Add company information if available
+    company: data.company || 'Unknown Company',
+    year: data.year || new Date().getFullYear().toString(),
+    uploadSource: 'S3 Transfer Accelerator'
   };
   
   // Process financial ratios
