@@ -1,17 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { useFinancialData, extractFinancialRatios, formatCategoryName, formatMetricName } from '@/hooks/useFinancialData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import DataTable from '@/components/dashboard/DataTable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshCw, Download, Filter } from 'lucide-react';
-import { ChartContainer } from '@/components/ui/chart';
-import { PieChart, BarChart, XAxis, YAxis, Bar, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+
+// Lazy load components that aren't needed on initial render
+const DataTable = lazy(() => import('@/components/dashboard/DataTable'));
+const ChartSection = lazy(() => import('@/components/dashboard/ChartSection'));
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -95,53 +96,6 @@ const Dashboard = () => {
       description: 'Financial data has been exported to CSV',
     });
   };
-  
-  // Prepare chart data
-  const prepareCategoryChartData = () => {
-    if (!ratios.length) return [];
-    
-    const categoryCounts: Record<string, number> = {};
-    ratios.forEach(item => {
-      const category = formatCategoryName(item.category);
-      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-    });
-    
-    return Object.keys(categoryCounts).map(category => ({
-      name: category,
-      value: categoryCounts[category]
-    }));
-  };
-  
-  const prepareValueChartData = () => {
-    if (!ratios.length) return [];
-    
-    // Get top 10 metrics by value
-    return [...ratios]
-      .map(item => ({
-        name: formatMetricName(item.metric),
-        value: typeof item.value === 'string' ? 
-          parseFloat(item.value.toString().replace('%', '').replace('ZAR', '').replace(',', '')) : 
-          item.value
-      }))
-      .filter(item => !isNaN(item.value))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-  };
-  
-  const categoryChartData = prepareCategoryChartData();
-  const valueChartData = prepareValueChartData();
-  
-  // Chart colors
-  const CHART_COLORS = [
-    '#3b82f6', // blue
-    '#10b981', // green
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // purple
-    '#06b6d4', // cyan
-    '#ec4899', // pink
-    '#14b8a6', // teal
-  ];
 
   return (
     <DashboardLayout>
@@ -247,75 +201,32 @@ const Dashboard = () => {
           </div>
         )}
         
-        {/* Data Table */}
+        {/* Data Table with Suspense for lazy loading */}
         {!isLoading && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Ratios</CardTitle>
-              <CardDescription>
-                Detailed breakdown of financial metrics and ratios
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DataTable 
-                data={ratios}
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-              />
-            </CardContent>
-          </Card>
+          <Suspense fallback={<div className="flex justify-center py-8">Loading data table...</div>}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Ratios</CardTitle>
+                <CardDescription>
+                  Detailed breakdown of financial metrics and ratios
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DataTable 
+                  data={ratios}
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={setSelectedCategory}
+                />
+              </CardContent>
+            </Card>
+          </Suspense>
         )}
         
-        {/* Chart Section */}
+        {/* Chart Section with Suspense for lazy loading */}
         {!isLoading && ratios.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Distribution</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryChartData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={120}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {categoryChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [`${value} metrics`, 'Count']} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Top 10 Metrics by Value</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={valueChartData}
-                    margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-                  >
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={100} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          <Suspense fallback={<div className="flex justify-center py-8">Loading charts...</div>}>
+            <ChartSection ratios={ratios} />
+          </Suspense>
         )}
         
         <div className="mt-8 flex justify-end">
