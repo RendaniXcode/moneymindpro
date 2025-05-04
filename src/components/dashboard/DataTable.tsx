@@ -4,6 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from '@/lib/utils';
+import { Search, Filter } from 'lucide-react';
+import CategoryFilter from './CategoryFilter';
 
 export interface FinancialRatio {
   id: number;
@@ -15,12 +17,19 @@ export interface FinancialRatio {
 
 interface DataTableProps {
   data: FinancialRatio[];
+  selectedCategory?: string;
+  onSelectCategory?: (category: string) => void;
   className?: string;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, className }) => {
+const DataTable: React.FC<DataTableProps> = ({ 
+  data, 
+  selectedCategory = 'all', 
+  onSelectCategory = () => {}, 
+  className 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const categories = ['all', ...Array.from(new Set(data.map(item => item.category)))];
 
@@ -65,28 +74,35 @@ const DataTable: React.FC<DataTableProps> = ({ data, className }) => {
   return (
     <div className={cn("bg-white rounded-md border", className)}>
       <div className="p-4 space-y-4">
-        <Input
-          placeholder="Search metrics or categories..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-        
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Badge
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={cn(
-                "cursor-pointer hover:opacity-80 transition-opacity",
-                category === 'all' ? 'bg-slate-100 text-slate-800' : getBadgeColor(category),
-                selectedCategory === category ? "ring-1 ring-black ring-offset-1" : ""
-              )}
-            >
-              {category === 'all' ? 'All Categories' : category.replace('_', ' ')}
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search metrics or categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 text-sm px-3 py-1 border rounded-md hover:bg-slate-50"
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filter</span>
+            <Badge variant="secondary" className="ml-1">
+              {selectedCategory === 'all' ? 'All' : '1'}
             </Badge>
-          ))}
+          </button>
         </div>
+        
+        {showFilters && (
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={onSelectCategory}
+          />
+        )}
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -104,14 +120,14 @@ const DataTable: React.FC<DataTableProps> = ({ data, className }) => {
                 <TableRow key={row.id}>
                   <TableCell>
                     <Badge variant="outline" className={cn("font-normal", getBadgeColor(row.category))}>
-                      {row.category.replace('_', ' ')}
+                      {row.category.replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">
-                    {row.metric.replace('_', ' ')}
+                    {row.metric.replace(/_/g, ' ')}
                   </TableCell>
                   <TableCell className={cn("text-right", getMetricStatus(row.metric, row.value))}>
-                    {row.value}
+                    {typeof row.value === 'number' && row.metric.includes('margin') ? `${row.value}%` : row.value}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[500px]">
                     {row.explanation}
