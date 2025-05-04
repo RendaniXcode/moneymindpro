@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Upload, FileUp } from "lucide-react";
@@ -6,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { s3Service } from '@/services/s3Service';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -19,11 +19,6 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  // S3 Transfer Accelerator endpoint - Updated to use the correct endpoint
-  const S3_ACCELERATED_ENDPOINT = 'workshop-demo-rendani.s3-accelerate.amazonaws.com';
-  // Full URL with https
-  const S3_DIRECT_UPLOAD_URL = `https://${S3_ACCELERATED_ENDPOINT}`;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -45,283 +40,224 @@ const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onUploadComplete, c
     setStatus('uploading');
     setUploadProgress(0);
 
-    // Process different file types
     try {
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      
-      // Log the upload target for debugging
-      console.log(`Uploading to S3 Transfer Accelerator endpoint: ${S3_ACCELERATED_ENDPOINT}`);
-      
-      // Simulate the accelerated upload with faster progress
-      await uploadToS3Accelerated(file);
-      
-      if (fileExtension === 'json') {
-        // Handle JSON files
-        processJsonFile(file);
-      } else if (['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
-        // For demo, we'll convert all tabular data formats to a similar JSON structure
-        simulateTabularDataProcessing(file);
-      } else if (['pdf', 'txt', 'doc', 'docx'].includes(fileExtension || '')) {
-        // For demo, simulate document processing to extract financial data
-        simulateDocumentProcessing(file);
-      } else {
-        throw new Error("Unsupported file format");
+      // Upload to S3
+      const result = await s3Service.uploadFile(
+          file,
+          'financial-statements', // Folder in your bucket
+          (progress) => {
+            setUploadProgress(progress);
+          }
+      );
+
+      // Call the callback with S3 upload result
+      if (onUploadComplete) {
+        onUploadComplete({
+          fileName: file.name,
+          s3Location: result.Location,
+          bucket: result.Bucket,
+          key: result.Key,
+          etag: result.ETag
+        });
       }
+
+      setStatus('success');
+      toast({
+        title: "Upload Successful",
+        description: `${file.name} has been uploaded to S3`,
+      });
+
+      // Reset after delay
+      setTimeout(() => {
+        setIsOpen(false);
+        setFile(null);
+        setStatus('idle');
+        setUploadProgress(0);
+      }, 1000);
+
     } catch (error) {
       console.error("Error uploading file:", error);
       setStatus('error');
+      
+      // Check for CORS-related errors
+      const isCorsError = 
+        error instanceof Error && 
+        (error.message.includes("NetworkError") || 
+         error.message.includes("Network Error") ||
+         error.message.includes("CORS"));
+      
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "There was a problem uploading your file. Please try again.",
+        description: isCorsError 
+          ? "CORS error: S3 bucket is not configured to accept uploads from this domain. Please check README.md for CORS configuration instructions."
+          : (error instanceof Error ? error.message : "There was a problem uploading your file."),
         variant: "destructive",
       });
     }
   };
 
-  // Enhanced S3 accelerated upload with progress tracking
-  const uploadToS3Accelerated = async (file: File) => {
-    return new Promise<void>((resolve, reject) => {
-      // In production, we'd use the AWS SDK or fetch with a pre-signed URL from backend
-      // const uploadUrl = await getPresignedUrl(file.name);
-      
-      // Accelerated upload simulation - faster than regular upload
-      // Transfer acceleration can improve upload speed by 50-500% depending on conditions
-      let progress = 0;
-      const totalSteps = 10;
-      // Faster interval for accelerated uploads - 150ms instead of 200ms
-      const uploadInterval = setInterval(() => {
-        progress += 1;
-        setUploadProgress(Math.round((progress / totalSteps) * 100));
-        
-        if (progress >= totalSteps) {
-          clearInterval(uploadInterval);
-          console.log(`Successfully uploaded ${file.name} to ${S3_ACCELERATED_ENDPOINT} using Transfer Acceleration`);
-          resolve();
-        }
-      }, 150); // Faster speed to simulate acceleration
-    });
-  };
-
-  const processJsonFile = (file: File) => {
-    const reader = new FileReader();
+    const [files, setFiles] = useState<any[]>([]);
+    const [loadingFiles, setLoadingFiles] = useState(false);
     
-    reader.onload = (event) => {
+    // Function to load files from the same folder
+    const loadFiles = async () => {
       try {
-        if (typeof event.target?.result === 'string') {
-          const parsedData = JSON.parse(event.target.result);
-          handleUploadSuccess(parsedData);
-        }
+        setLoadingFiles(true);
+        const filesList = await s3Service.listFiles('financial-statements');
+        setFiles(filesList);
+        console.log('Files in S3:', filesList);
       } catch (error) {
-        console.error("Error parsing JSON file:", error);
-        setStatus('error');
+        console.error('Error loading files:', error);
         toast({
-          title: "Invalid Format",
-          description: "The JSON file could not be processed. Please ensure it's a valid financial statement.",
+          title: "Error loading files",
+          description: error instanceof Error ? error.message : "Failed to load files from S3",
           variant: "destructive",
         });
+      } finally {
+        setLoadingFiles(false);
       }
     };
     
-    reader.readAsText(file);
-  };
-
-  const simulateTabularDataProcessing = (file: File) => {
-    // In a real implementation, you would parse CSV/Excel data here
-    // For demo purposes, we'll just generate dummy financial data
-    const dummyData = {
-      company: file.name.split('.')[0],
-      year: "2024",
-      generated_at: new Date().toISOString(),
-      report: {
-        executive_summary: "Financial data extracted from tabular data file.",
-        financial_ratios: generateDummyRatios(),
-        key_insights: [
-          "Extracted from tabular data file",
-          "Showing simulated data for demo purposes",
-          `Processed ${file.name} successfully`
-        ],
-        recommendations: [
-          "Analyze tabular data in detail",
-          "Consider using standardized templates",
-          "Review underlying calculations"
-        ]
+    // Load files when the dialog opens
+    React.useEffect(() => {
+      if (isOpen) {
+        loadFiles();
       }
-    };
+    }, [isOpen]);
     
-    handleUploadSuccess(dummyData);
-  };
-
-  const simulateDocumentProcessing = (file: File) => {
-    // In a real implementation, you would use document parsing services
-    // For demo purposes, we'll just generate dummy financial data
-    const dummyData = {
-      company: file.name.split('.')[0],
-      year: "2024",
-      generated_at: new Date().toISOString(),
-      report: {
-        executive_summary: `Extracted data from ${file.name}`,
-        financial_ratios: generateDummyRatios(),
-        key_insights: [
-          `Extracted from ${file.name}`,
-          "Document processed using simulated AI extraction",
-          "Financial metrics extracted from textual content"
-        ],
-        recommendations: [
-          "Review extracted data for accuracy",
-          "Consider using structured templates for better extraction",
-          "Provide more detailed financial statements for better analysis"
-        ]
-      }
-    };
-    
-    handleUploadSuccess(dummyData);
-  };
-
-  const generateDummyRatios = () => {
-    // Generate dummy financial ratios for demo
-    return {
-      liquidity_ratios: {
-        current_ratio: { value: 1.5, explanation: "Extracted from document" },
-        quick_ratio: { value: 1.2, explanation: "Extracted from document" },
-        cash_ratio: { value: 0.5, explanation: "Extracted from document" },
-        operating_cash_flow_ratio: { value: 0.8, explanation: "Extracted from document" }
-      },
-      profitability_ratios: {
-        gross_profit_margin: { value: 35, explanation: "Extracted from document" },
-        operating_profit_margin: { value: 15, explanation: "Extracted from document" },
-        net_profit_margin: { value: 10, explanation: "Extracted from document" },
-        return_on_assets: { value: 8, explanation: "Extracted from document" },
-        return_on_equity: { value: 12, explanation: "Extracted from document" }
-      },
-      solvency_ratios: {
-        debt_to_equity_ratio: { value: 1.2, explanation: "Extracted from document" },
-        debt_to_assets_ratio: { value: 0.4, explanation: "Extracted from document" },
-        interest_coverage_ratio: { value: 4.5, explanation: "Extracted from document" },
-        debt_service_coverage_ratio: { value: 1.5, explanation: "Extracted from document" }
-      },
-      efficiency_ratios: {
-        asset_turnover_ratio: { value: 0.7, explanation: "Extracted from document" },
-        inventory_turnover_ratio: { value: 5.2, explanation: "Extracted from document" },
-        receivables_turnover_ratio: { value: 8.1, explanation: "Extracted from document" },
-        payables_turnover_ratio: { value: 7.3, explanation: "Extracted from document" }
-      },
-      market_value_ratios: {
-        earnings_per_share: { value: 2.5, explanation: "Extracted from document" },
-        price_to_earnings_ratio: { value: 18.2, explanation: "Extracted from document" },
-        price_to_book_ratio: { value: 2.8, explanation: "Extracted from document" },
-        dividend_yield: { value: 2.1, explanation: "Extracted from document" }
-      }
-    };
-  };
-
-  const handleUploadSuccess = (data: any) => {
-    // Call the callback with the parsed data
-    if (onUploadComplete) {
-      onUploadComplete(data);
-    }
-    
-    setStatus('success');
-    toast({
-      title: "Upload Successful",
-      description: `${file?.name} has been processed successfully`,
-    });
-    
-    // Close the dialog after a brief delay
-    setTimeout(() => {
-      setIsOpen(false);
-      setFile(null);
-      setStatus('idle');
-    }, 1000);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          className={`w-full flex items-center justify-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white py-3 ${className}`}
-          onClick={() => setIsOpen(true)}
-        >
-          <Upload className="h-5 w-5" />
-          <span className="text-base">Upload Statements</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Upload Financial Statements</DialogTitle>
-          <DialogDescription>
-            Upload your financial statements to analyze and display on the dashboard.
-            Supported formats: JSON, CSV, Excel, PDF, TXT, DOC, DOCX
-            <p className="text-xs mt-1 text-muted-foreground">
-              Using S3 Transfer Accelerator for faster uploads: {S3_ACCELERATED_ENDPOINT}
-            </p>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="file" className="mb-1">Financial Statement File</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="file"
-                type="file"
-                accept=".json,.csv,.xlsx,.xls,.pdf,.txt,.doc,.docx"
-                onChange={handleFileChange}
-                disabled={status === 'uploading'}
-                className="flex-1"
-              />
-            </div>
-            {file && (
-              <p className="text-sm text-muted-foreground">
-                Selected file: {file.name} ({Math.round(file.size / 1024)} KB)
-              </p>
-            )}
-            
-            {status === 'uploading' && (
-              <div className="mt-2">
-                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 transition-all duration-200 ease-in-out"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button
+                className={`w-full flex items-center justify-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white py-3 ${className}`}
+                onClick={() => setIsOpen(true)}
+            >
+              <Upload className="h-5 w-5" />
+              <span className="text-base">Upload Files</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload File to S3</DialogTitle>
+              <DialogDescription>
+                Select a file to upload to your S3 bucket.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="file" className="mb-1">Select File</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                      id="file"
+                      type="file"
+                      onChange={handleFileChange}
+                      disabled={status === 'uploading'}
+                      className="flex-1"
+                  />
                 </div>
-                <p className="text-xs text-center mt-1 text-muted-foreground">
-                  Transfer Accelerated Upload: {uploadProgress}%
-                </p>
+                {file && (
+                    <p className="text-sm text-muted-foreground">
+                      Selected file: {file.name} ({Math.round(file.size / 1024)} KB)
+                    </p>
+                )}
+  
+                {status === 'uploading' && (
+                    <div className="mt-2">
+                      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-blue-500 transition-all duration-200 ease-in-out"
+                            style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-center mt-1 text-muted-foreground">
+                        Uploading: {uploadProgress}%
+                      </p>
+                    </div>
+                )}
               </div>
-            )}
+              
+              {/* Show existing files */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Files in S3 Bucket</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={loadFiles} 
+                    disabled={loadingFiles}
+                    className="h-8 px-2 text-xs"
+                  >
+                    {loadingFiles ? 'Loading...' : 'Refresh'}
+                  </Button>
+                </div>
+                
+                {loadingFiles ? (
+                  <div className="text-center p-4 text-sm text-muted-foreground">
+                    Loading files...
+                  </div>
+                ) : files.length > 0 ? (
+                  <div className="border rounded-md mt-1 max-h-40 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {files.map((file, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-xs">
+                              <a 
+                                href={file.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                {file.name}
+                              </a>
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs text-gray-500">
+                              {Math.round(file.size / 1024)} KB
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center border rounded-md p-4 text-sm text-muted-foreground">
+                    No files found
+                  </div>
+              )}
+            </div>
           </div>
-        </div>
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={status === 'uploading'}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUpload} 
-            disabled={!file || status === 'uploading'}
-            className="relative"
-          >
-            {status === 'uploading' ? (
-              <>
-                <span className="animate-pulse">Processing...</span>
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" />
-                </span>
-              </>
-            ) : status === 'success' ? (
-              "Uploaded!"
-            ) : (
-              <>
-                <FileUp className="mr-2 h-4 w-4" />
-                Upload
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                disabled={status === 'uploading'}
+            >
+              Cancel
+            </Button>
+            <Button
+                onClick={handleUpload}
+                disabled={!file || status === 'uploading'}
+            >
+              {status === 'uploading' ? (
+                  <span className="animate-pulse">Uploading...</span>
+              ) : status === 'success' ? (
+                  "Uploaded!"
+              ) : (
+                  <>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Upload
+                  </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   );
 };
 

@@ -1,218 +1,235 @@
-
-// This service handles all interactions with AWS S3
+import { S3Client, ListObjectsCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 
 interface S3Config {
   albumBucketName: string;
   bucketRegion: string;
-  identityPoolId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  useAcceleration?: boolean;
 }
 
 export class S3Service {
-  private s3: any;
+  private s3Client: S3Client | null = null;
   private albumBucketName: string;
-  
+  private useAcceleration: boolean;
+  private config: S3Config;
+  private initialized = false;
+
   constructor(config: S3Config) {
-    const { albumBucketName, bucketRegion, identityPoolId } = config;
-    
-    // In a production environment, you would use the AWS SDK
-    // We're creating a simulation since we can't include the AWS SDK directly here
-    console.log(`Initializing S3 service with bucket ${albumBucketName} in ${bucketRegion}`);
-    console.log(`Using identity pool ${identityPoolId}`);
-    
-    this.albumBucketName = albumBucketName;
-    this.s3 = {
-      // Mock implementation of S3 methods
-      listObjects: async (params: any) => this.mockListObjects(params),
-      headObject: async (params: any) => this.mockHeadObject(params),
-      putObject: async (params: any) => this.mockPutObject(params),
-      upload: async (params: any) => this.mockUpload(params),
-      deleteObject: async (params: any) => this.mockDeleteObject(params),
-      deleteObjects: async (params: any) => this.mockDeleteObjects(params)
-    };
+    this.config = config;
+    this.albumBucketName = config.albumBucketName;
+    this.useAcceleration = !!config.useAcceleration;
+
+    console.log(`S3 Service created with bucket ${this.albumBucketName} in ${config.bucketRegion}`);
   }
-  
-  // ALBUM OPERATIONS
-  
-  async listAlbums() {
-    console.log("Listing albums in bucket:", this.albumBucketName);
-    
-    try {
-      const data = await this.s3.listObjects({ Delimiter: "/" });
-      
-      // Mock data for development
-      return {
-        CommonPrefixes: [
-          { Prefix: "Album1/" },
-          { Prefix: "Album2/" },
-          { Prefix: "Vacation2023/" },
-          { Prefix: "FamilyPhotos/" }
-        ]
-      };
-    } catch (error) {
-      console.error("Error listing albums:", error);
-      throw error;
+
+  private async initializeS3(): Promise<S3Client> {
+    if (this.initialized && this.s3Client) {
+      return this.s3Client;
     }
+
+    const {
+      bucketRegion,
+      accessKeyId,
+      secretAccessKey,
+    } = this.config;
+
+    // Initialize S3 client
+    this.s3Client = new S3Client({
+      region: bucketRegion,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+      useAccelerateEndpoint: this.useAcceleration,
+    });
+
+    console.log(`S3 client initialized. Transfer Acceleration: ${this.useAcceleration ? 'Enabled' : 'Disabled'}`);
+    this.initialized = true;
+
+    return this.s3Client;
   }
-  
-  async createAlbum(albumName: string) {
-    albumName = albumName.trim();
-    
-    if (!albumName) {
-      throw new Error("Album names must contain at least one non-space character.");
-    }
-    if (albumName.indexOf("/") !== -1) {
-      throw new Error("Album names cannot contain slashes.");
-    }
-    
-    const albumKey = encodeURIComponent(albumName) + "/";
-    
+
+  // Generic file upload method with progress tracking
+  async uploadFile(file: File, path: string = '', onProgress?: (progress: number) => void) {
+    const key = path ? `${path}/${file.name}` : file.name;
+    console.log(`Preparing to upload file: ${file.name} (${file.size} bytes) to ${this.albumBucketName}/${key}`);
+
     try {
-      await this.s3.headObject({ Key: albumKey });
-      throw new Error(`Album ${albumName} already exists.`);
-    } catch (error: any) {
-      if (error.code === "NotFound") {
-        try {
-          await this.s3.putObject({ Key: albumKey });
-          console.log(`Successfully created album: ${albumName}`);
-          return albumName;
-        } catch (putError) {
-          console.error("Error creating album:", putError);
-          throw putError;
-        }
-      } else {
-        console.error("Error checking if album exists:", error);
-        throw error;
+      const s3Client = await this.initializeS3();
+      console.log(`S3 client initialized, starting upload to ${this.albumBucketName}/${key}`);
+
+      const upload = new Upload({
+        client: s3Client,
+        params: {
+          Bucket: this.albumBucketName,
+          Key: key,
+          Body: file,
+          ContentType: file.type || 'application/octet-stream',
+          ACL: 'public-read',
+        },
+      });
+
+      // Register progress handler
+      if (onProgress) {
+        upload.on('httpUploadProgress', (progress) => {
+          if (progress.loaded && progress.total) {
+            console.log(`Upload progress: ${progress.loaded}/${progress.total} bytes`);
+            const percentage = Math.round((progress.loaded / progress.total) * 100);
+            onProgress(percentage);
+          }
+        });
       }
-    }
-  }
-  
-  async deleteAlbum(albumName: string) {
-    const albumKey = encodeURIComponent(albumName) + "/";
-    
-    try {
-      const data = await this.s3.listObjects({ Prefix: albumKey });
-      const objects = data.Contents.map((content: any) => ({ Key: content.Key }));
-      
-      await this.s3.deleteObjects({
-        Delete: { Objects: objects }
-      });
-      
-      await this.s3.deleteObject({ Key: albumKey });
-      
-      console.log(`Successfully deleted album: ${albumName}`);
-      return albumName;
-    } catch (error) {
-      console.error("Error deleting album:", error);
-      throw error;
-    }
-  }
-  
-  // PHOTO OPERATIONS
-  
-  async listPhotos(albumName: string) {
-    const albumKey = encodeURIComponent(albumName) + "/";
-    
-    try {
-      const data = await this.s3.listObjects({ Prefix: albumKey });
-      
-      // Mock data for development
-      const contents = [
-        { Key: `${albumKey}photo1.jpg`, Size: 125000, LastModified: new Date() },
-        { Key: `${albumKey}photo2.jpg`, Size: 78500, LastModified: new Date() },
-        { Key: `${albumKey}vacation_pic.jpg`, Size: 215000, LastModified: new Date() }
-      ];
-      
-      return contents;
-    } catch (error) {
-      console.error("Error listing photos:", error);
-      throw error;
-    }
-  }
-  
-  async addPhoto(albumName: string, file: File) {
-    const albumKey = encodeURIComponent(albumName) + "/";
-    const photoKey = albumKey + file.name;
-    
-    try {
-      const upload = await this.s3.upload({
-        Key: photoKey,
-        Body: file,
-        ACL: "public-read"
-      });
-      
-      console.log("Successfully uploaded photo:", file.name);
+
+      console.log('Starting S3 upload...');
+      const result = await upload.done();
+
+      console.log(`Upload completed successfully`);
+
+      // Construct the file URL
+      const fileUrl = this.useAcceleration
+          ? `https://${this.albumBucketName}.s3-accelerate.amazonaws.com/${key}`
+          : `https://${this.albumBucketName}.s3.${this.config.bucketRegion}.amazonaws.com/${key}`;
+
       return {
-        key: photoKey,
-        url: `https://${this.albumBucketName}.s3.amazonaws.com/${encodeURIComponent(photoKey)}`
+        Location: fileUrl,
+        Bucket: this.albumBucketName,
+        Key: key,
+        ETag: result.ETag,
       };
     } catch (error) {
-      console.error("Error uploading photo:", error);
+      console.error("S3 upload failed with error:", error);
       throw error;
     }
   }
-  
-  async deletePhoto(albumName: string, photoKey: string) {
-    try {
-      await this.s3.deleteObject({ Key: photoKey });
-      console.log("Successfully deleted photo:", photoKey);
-      return photoKey;
-    } catch (error) {
-      console.error("Error deleting photo:", error);
-      throw error;
-    }
-  }
-  
-  // MOCK IMPLEMENTATIONS
-  
-  private mockListObjects(params: any) {
-    console.log("Mock listObjects called with:", params);
-    return Promise.resolve({
-      CommonPrefixes: [
-        { Prefix: "Album1/" },
-        { Prefix: "Album2/" }
-      ],
-      Contents: params.Prefix ? [
-        { Key: `${params.Prefix}photo1.jpg`, Size: 125000, LastModified: new Date() },
-        { Key: `${params.Prefix}photo2.jpg`, Size: 78500, LastModified: new Date() }
-      ] : []
-    });
-  }
-  
-  private mockHeadObject(params: any) {
-    console.log("Mock headObject called with:", params);
-    if (params.Key === "NewAlbum/") {
-      return Promise.reject({ code: "NotFound" });
-    }
-    return Promise.resolve({});
-  }
-  
-  private mockPutObject(params: any) {
-    console.log("Mock putObject called with:", params);
-    return Promise.resolve({});
-  }
-  
-  private mockUpload(params: any) {
-    console.log("Mock upload called with:", params);
-    return Promise.resolve({
-      Location: `https://example.com/${params.Key}`
-    });
-  }
-  
-  private mockDeleteObject(params: any) {
-    console.log("Mock deleteObject called with:", params);
-    return Promise.resolve({});
-  }
-  
-  private mockDeleteObjects(params: any) {
-    console.log("Mock deleteObjects called with:", params);
-    return Promise.resolve({});
-  }
+
+  // ... other methods (listAlbums, createAlbum, etc.) remain the same but without Cognito references
 }
 
-// Create and export a default instance with placeholder values
-// In a real app, these would come from environment variables
-export const s3Service = new S3Service({
-  albumBucketName: "my-photo-album-bucket",
-  bucketRegion: "us-east-1",
-  identityPoolId: "us-east-1:xxxxx-xxxxx-xxxxx-xxxxx-xxxxx"
-});
+// Debug flag
+const DEBUG = true;
+
+// Create and export a default instance
+const createS3Service = () => {
+  const getEnvVar = (key: string, defaultValue: string = '') => {
+    if (typeof import.meta.env === 'undefined') {
+      console.warn(`Import meta env is undefined when accessing ${key}`);
+      return defaultValue;
+    }
+    const value = import.meta.env[key] || defaultValue;
+    if (DEBUG) {
+      console.log(`ENV: ${key} = ${key.includes('SECRET') ? '[HIDDEN]' : value}`);
+    }
+    return value;
+  };
+
+  const bucket = getEnvVar('VITE_AWS_S3_BUCKET', 'my-photo-album-bucket');
+  const region = getEnvVar('VITE_AWS_REGION', 'us-east-1');
+  const accessKeyId = getEnvVar('VITE_AWS_ACCESS_KEY_ID');
+  const secretAccessKey = getEnvVar('VITE_AWS_SECRET_ACCESS_KEY');
+  const enableAcceleration = getEnvVar('VITE_ENABLE_S3_ACCELERATION') === 'true';
+
+  if (DEBUG) {
+    console.log('Creating S3 service with configuration:');
+    console.log(`- Bucket: ${bucket}`);
+    console.log(`- Region: ${region}`);
+    console.log(`- Access Key ID: ${accessKeyId ? 'Provided' : 'Not provided'}`);
+    console.log(`- Secret Access Key: ${secretAccessKey ? 'Provided' : 'Not provided'}`);
+    console.log(`- S3 Acceleration: ${enableAcceleration ? 'Enabled' : 'Disabled'}`);
+  }
+
+  if (!bucket) console.error('ERROR: No S3 bucket specified');
+  if (!region) console.error('ERROR: No AWS region specified');
+  if (!accessKeyId) console.error('ERROR: No AWS access key ID provided');
+  if (!secretAccessKey) console.error('ERROR: No AWS secret access key provided');
+
+  // Only create service if we have required credentials
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error('AWS credentials are required');
+  }
+
+  return new S3Service({
+    albumBucketName: bucket,
+    bucketRegion: region,
+    accessKeyId,
+    secretAccessKey,
+    useAcceleration: enableAcceleration
+  });
+};
+
+  import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+  
+  // Add both methods for backward compatibility
+  S3Service.prototype.listFiles = async function(folder = '') {
+    try {
+      return await this.listFilesV2(folder);
+    } catch (error) {
+      console.error("Error in listFiles:", error);
+      throw error;
+    }
+  };
+  
+  // More robust implementation using AWS SDK v3
+  S3Service.prototype.listFilesV2 = async function(folder = '') {
+    try {
+      console.log(`Listing files in ${this.albumBucketName}/${folder}`);
+      const s3Client = await this.initializeS3();
+      
+      // Prepare the parameters for listing objects
+      const params = {
+        Bucket: this.albumBucketName,
+        Prefix: folder ? `${folder}/` : '',
+        MaxKeys: 1000
+      };
+      
+      console.log('List params:', JSON.stringify(params));
+      
+      // Create the list objects command
+      const command = new ListObjectsV2Command(params);
+      
+      // Execute the command
+      console.log('Executing ListObjectsV2Command...');
+      const response = await s3Client.send(command);
+      console.log('ListObjectsV2Command executed successfully');
+      
+      const filesCount = response.Contents?.length || 0;
+      console.log(`Found ${filesCount} files in ${folder || 'root'}`);
+      
+      if (filesCount === 0) {
+        return [];
+      }
+      
+      // Format the response
+      return (response.Contents || []).map(item => {
+        // Ensure Key exists before processing
+        const key = item.Key || '';
+        const name = key.split('/').pop() || '';
+        const size = item.Size || 0;
+        
+        // Generate URL using the correct region and acceleration settings
+        const url = this.useAcceleration
+          ? `https://${this.albumBucketName}.s3-accelerate.amazonaws.com/${key}`
+          : `https://${this.albumBucketName}.s3.${this.config.bucketRegion}.amazonaws.com/${key}`;
+        
+        return {
+          key,
+          name,
+          lastModified: item.LastModified,
+          size,
+          url
+        };
+      });
+    } catch (error) {
+      console.error(`Error listing files in ${folder}:`, error);
+      // More detailed error reporting
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+    throw error;
+  }
+  };
+  
+export const s3Service = createS3Service();

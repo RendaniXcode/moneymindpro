@@ -4,11 +4,11 @@
 
 **URL**: https://lovable.dev/projects/7970b255-e04e-4e93-bae2-4a12d4710aa3
 
-## How can I edit this code?
+## Environment Setup
 
-There are several ways of editing your application.
+### AWS Configuration
 
-**Use Lovable**
+To enable S3 file uploads, you need to create a `.env.local` file in the project root with the following variables:
 
 Simply visit the [Lovable Project](https://lovable.dev/projects/7970b255-e04e-4e93-bae2-4a12d4710aa3) and start prompting.
 
