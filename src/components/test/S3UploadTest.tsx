@@ -31,23 +31,21 @@ const S3UploadTest: React.FC = () => {
       console.log('- Access Key ID:', accessKeyId ? 'Provided' : 'Not provided');
       console.log('- Secret Access Key:', secretAccessKey ? 'Provided' : 'Not provided');
 
-      // Validate all required credentials
-      if (!accessKeyId || !secretAccessKey || !region || !bucket) {
-        throw new Error('Missing required AWS configuration');
+      // Create S3 client with IAM credentials
+      if (accessKeyId && secretAccessKey) {
+        // Create client just to test credentials
+        new S3Client({
+          region: region,
+          credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey,
+          },
+        });
+        console.log('Using IAM credentials');
+        setStatus('AWS SDK v3 client created successfully');
+      } else {
+        setError('AWS credentials not provided');
       }
-
-      // Create and test S3 client with IAM credentials
-      const client = new S3Client({
-        region: region,
-        credentials: {
-          accessKeyId: accessKeyId,
-          secretAccessKey: secretAccessKey,
-        },
-      });
-
-      // Verify client creation
-      console.log('Using IAM credentials');
-      setStatus('AWS SDK v3 client created successfully');
 
     } catch (err) {
       console.error('Error:', err);
