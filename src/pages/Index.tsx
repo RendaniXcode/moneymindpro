@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -261,14 +262,22 @@ const Index = () => {
         </div>
       )}
       
-      {/* Summary Cards with Status - removed Total Records and Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
+      {/* Summary Cards with Status - restored APPROVED/DECLINED cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <MetricCard 
-          title="Current Filter" 
-          value={selectedCategory !== 'all' ? formatCategoryName(selectedCategory) : "All Data"}
-          description="Applied filter"
+          title="Total Records" 
+          value={financialRatios.length.toString()}
+          status="declined"
           subtitle="Small Executive SUMMARY"
-          status="neutral"
+          highlights="3 Highlights to summarize the reason why it was Declined"
+        />
+        
+        <MetricCard 
+          title="Categories" 
+          value={categories.length.toString()}
+          status="approved"
+          subtitle="Small Executive SUMMARY"
+          highlights="3 Highlights to summarize the reason why it was approve"
         />
       </div>
       
