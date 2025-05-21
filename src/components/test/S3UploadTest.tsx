@@ -1,7 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { S3Client } from '@aws-sdk/client-s3';
-import { CheckCircle, Upload } from 'lucide-react';
+import { CheckCircle, Upload, AlertTriangle } from 'lucide-react';
 import { s3Service } from '@/services/s3Service';
+import { toast } from '@/hooks/use-toast';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const S3UploadTest: React.FC = () => {
   const [status, setStatus] = useState<string>('');
@@ -10,6 +13,7 @@ const S3UploadTest: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [credentialsProvided, setCredentialsProvided] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const testAWSCredentials = async () => {
@@ -31,6 +35,15 @@ const S3UploadTest: React.FC = () => {
       console.log('- Access Key ID:', accessKeyId ? 'Provided' : 'Not provided');
       console.log('- Secret Access Key:', secretAccessKey ? 'Provided' : 'Not provided');
 
+      // Check if credentials are provided
+      if (!accessKeyId || !secretAccessKey) {
+        setCredentialsProvided(false);
+        setError('AWS credentials not provided. Please check your environment variables.');
+        return;
+      }
+
+      setCredentialsProvided(true);
+
       // Create S3 client with IAM credentials
       if (accessKeyId && secretAccessKey) {
         // Create client just to test credentials
@@ -43,8 +56,6 @@ const S3UploadTest: React.FC = () => {
         });
         console.log('Using IAM credentials');
         setStatus('AWS SDK v3 client created successfully');
-      } else {
-        setError('AWS credentials not provided');
       }
 
     } catch (err) {
@@ -65,6 +76,15 @@ const S3UploadTest: React.FC = () => {
   const handleUpload = async () => {
     if (!selectedFile) {
       setError('Please select a file to upload');
+      return;
+    }
+
+    if (!credentialsProvided) {
+      toast({
+        title: "AWS Credentials Missing",
+        description: "Please configure your AWS credentials to use this feature.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -122,6 +142,21 @@ const S3UploadTest: React.FC = () => {
       <div className="p-4 max-w-xl mx-auto">
         <h2 className="text-xl font-bold mb-4">S3 Upload Test</h2>
 
+        {!credentialsProvided && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Missing AWS Credentials</AlertTitle>
+            <AlertDescription>
+              To use S3 functionality, you need to configure the following environment variables:
+              <ul className="list-disc pl-5 mt-2">
+                <li>VITE_AWS_ACCESS_KEY_ID</li>
+                <li>VITE_AWS_SECRET_ACCESS_KEY</li>
+              </ul>
+              <p className="mt-2">You can add these in your Vite environment setup.</p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="mb-6 p-4 border rounded-lg bg-gray-50">
           <div className="mb-4">
             <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">
@@ -133,7 +168,7 @@ const S3UploadTest: React.FC = () => {
                 type="file"
                 onChange={handleFileChange}
                 className="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                disabled={isUploading}
+                disabled={isUploading || !credentialsProvided}
             />
           </div>
 
@@ -166,9 +201,9 @@ const S3UploadTest: React.FC = () => {
 
           <button
               onClick={handleUpload}
-              disabled={!selectedFile || isUploading || uploadSuccess}
+              disabled={!selectedFile || isUploading || uploadSuccess || !credentialsProvided}
               className={`w-full flex items-center justify-center gap-2 ${
-                  !selectedFile || isUploading || uploadSuccess
+                  !selectedFile || isUploading || uploadSuccess || !credentialsProvided
                       ? 'bg-gray-300 cursor-not-allowed'
                       : 'bg-blue-500 hover:bg-blue-600'
               } text-white py-2 px-4 rounded transition-colors`}

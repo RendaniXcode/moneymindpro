@@ -1,3 +1,4 @@
+
 import {
   S3Client,
   ListObjectsV2Command,
@@ -20,16 +21,23 @@ export class S3Service {
   private readonly useAcceleration: boolean;
   private readonly config: S3Config;
   private initialized = false;
+  private hasCredentials = false;
 
   constructor(config: S3Config) {
     this.config = config;
     this.albumBucketName = config.albumBucketName;
     this.useAcceleration = !!config.useAcceleration;
+    this.hasCredentials = !!(config.accessKeyId && config.secretAccessKey);
 
     console.log(`S3 Service created with bucket ${this.albumBucketName} in ${config.bucketRegion}`);
   }
 
-  private async initializeS3(): Promise<S3Client> {
+  private async initializeS3(): Promise<S3Client | null> {
+    if (!this.hasCredentials) {
+      console.warn('AWS credentials not provided. S3 functionality will be disabled.');
+      return null;
+    }
+
     if (this.initialized && this.s3Client) {
       return this.s3Client;
     }
@@ -63,6 +71,10 @@ export class S3Service {
 
     try {
       const s3Client = await this.initializeS3();
+      if (!s3Client) {
+        throw new Error('AWS credentials not configured. Please check your AWS configuration.');
+      }
+      
       console.log(`S3 client initialized, starting basic upload to ${this.albumBucketName}/${key}`);
 
       // Start progress indication
@@ -133,6 +145,9 @@ export class S3Service {
     try {
       console.log(`Listing files in ${this.albumBucketName}/${folder}`);
       const s3Client = await this.initializeS3();
+      if (!s3Client) {
+        return [];
+      }
 
       // Prepare the parameters for listing objects
       const params = {
@@ -425,19 +440,15 @@ const createS3Service = () => {
 
   if (!bucket) console.error('ERROR: No S3 bucket specified');
   if (!region) console.error('ERROR: No AWS region specified');
-  if (!accessKeyId) console.error('ERROR: No AWS access key ID provided');
-  if (!secretAccessKey) console.error('ERROR: No AWS secret access key provided');
+  if (!accessKeyId) console.warn('WARNING: No AWS access key ID provided');
+  if (!secretAccessKey) console.warn('WARNING: No AWS secret access key provided');
 
-  // Only create service if we have required credentials
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error('AWS credentials are required');
-  }
-
+  // Create the service regardless of credentials, but service methods will handle the missing credentials
   return new S3Service({
     albumBucketName: bucket,
     bucketRegion: region,
-    accessKeyId,
-    secretAccessKey,
+    accessKeyId: accessKeyId || '',
+    secretAccessKey: secretAccessKey || '',
     useAcceleration: enableAcceleration
   });
 };
