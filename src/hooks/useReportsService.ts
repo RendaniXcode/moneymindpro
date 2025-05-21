@@ -215,7 +215,7 @@ export const useReportsService = () => {
         ],
         insights: [
           'MultiChoice Group demonstrates strong financial health with robust liquidity and solvency positions.',
-          'The company's profitability metrics outperform industry averages, particularly in operating profit margin.',
+          "The company's profitability metrics outperform industry averages, particularly in operating profit margin.",
           'Consistently improving revenue trends indicate successful market penetration and product adoption.',
           'The debt structure is sustainable with a conservative debt-to-equity ratio of 0.68.',
           'Strong cash flow generation supports ongoing investments in content and technology infrastructure.'
@@ -296,7 +296,7 @@ export const useReportsService = () => {
         ],
         insights: [
           'Sasol is facing challenges in its liquidity position, particularly in quick ratio metrics.',
-          'The company's higher debt-to-equity ratio of 1.15 increases financial risk exposure.',
+          "The company's higher debt-to-equity ratio of 1.15 increases financial risk exposure.",
           'Profitability metrics are showing moderate performance with room for improvement.',
           'Recent operational efficiency initiatives have helped stabilize operating margins.',
           'Exposure to commodity price volatility continues to impact financial performance.'
