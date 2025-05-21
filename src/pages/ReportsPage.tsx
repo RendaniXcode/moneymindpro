@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { formatCategoryName, formatMetricName } from '@/hooks/useFinancialData';
 import { Badge } from '@/components/ui/badge';
 import { Search, FileText, Download, TrendingUp, TrendingDown } from 'lucide-react';
-import CreditScoreCard from '@/components/reports/CreditScoreCard';
 import ReportDetails from '@/components/reports/ReportDetails';
 import { useReportsService } from '@/hooks/useReportsService';
 
@@ -163,7 +162,6 @@ const ReportsPage = () => {
                   <CardHeader className="pb-0">
                     <div className="flex items-center justify-between">
                       <CardTitle>{selectedReport.companyName}</CardTitle>
-                      <CreditScoreCard score={selectedReport.creditScore} />
                     </div>
                     <CardDescription>
                       {selectedReport.industry} | Report Date: {new Date(selectedReport.date).toLocaleDateString()}

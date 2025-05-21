@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Report } from '@/hooks/useReportsService';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import MetricCard from '@/components/dashboard/MetricCard';
 
 interface ReportDetailsProps {
   report: Report;
@@ -29,8 +30,24 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
     return ((data[data.length - 1] - data[0]) / data[0] * 100).toFixed(1);
   }
   
+  // Determine approval status based on credit score
+  const approvalStatus = report.creditScore >= 70 ? 'approved' : 'declined';
+  
   return (
     <div className="space-y-6">
+      {/* Credit Score Decision Card */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium mb-3">Credit Decision</h3>
+        <div className="max-w-xs">
+          <MetricCard 
+            title="Credit Score" 
+            value={report.creditScore}
+            description={`Credit ${approvalStatus === 'approved' ? 'approved' : 'declined'} based on financial analysis`}
+            status={approvalStatus}
+          />
+        </div>
+      </div>
+      
       <div>
         <h3 className="text-lg font-medium mb-3">Company Profile</h3>
         <p className="text-muted-foreground">{report.companyProfile}</p>
