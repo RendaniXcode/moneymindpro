@@ -1,0 +1,261 @@
+
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+import { formatCategoryName, formatMetricName } from '@/hooks/useFinancialData';
+import { Badge } from '@/components/ui/badge';
+import { Search, FileText, Download, TrendingUp, TrendingDown } from 'lucide-react';
+import CreditScoreCard from '@/components/reports/CreditScoreCard';
+import ReportDetails from '@/components/reports/ReportDetails';
+import { useReportsService } from '@/hooks/useReportsService';
+
+const ReportsPage = () => {
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
+  const { fetchReports, getReportById } = useReportsService();
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  
+  // Fetch all reports
+  const { data: reports = [], isLoading } = useQuery({
+    queryKey: ['reports'],
+    queryFn: fetchReports,
+  });
+  
+  // Fetch selected report details
+  const { data: selectedReport, isLoading: isLoadingReport } = useQuery({
+    queryKey: ['report', selectedReportId],
+    queryFn: () => getReportById(selectedReportId!),
+    enabled: !!selectedReportId,
+  });
+  
+  // Filter reports based on search term
+  const filteredReports = reports.filter(report => 
+    report.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    report.reportId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    report.industry.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const handleSelectReport = (reportId: string) => {
+    setSelectedReportId(reportId);
+  };
+  
+  const handleExportReport = () => {
+    if (!selectedReport) return;
+    
+    // Convert report to CSV
+    const headers = ['Category', 'Metric', 'Value', 'Explanation'];
+    const csvContent = [
+      headers.join(','),
+      ...selectedReport.ratios.map((row: any) => 
+        [row.category, row.metric, row.value, `"${row.explanation}"`].join(',')
+      )
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${selectedReport.companyName}_credit_report.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: 'Export Complete',
+      description: 'Credit report has been exported to CSV',
+    });
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <DashboardHeader 
+          title="Credit Analysis Reports" 
+          subtitle="Historical credit analysis results"
+          onExport={selectedReport ? handleExportReport : undefined}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Reports List */}
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Company Reports</CardTitle>
+              <CardDescription>
+                Select a company to view the credit analysis
+              </CardDescription>
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search companies..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : filteredReports.length > 0 ? (
+                <div className="space-y-2">
+                  {filteredReports.map((report) => (
+                    <div 
+                      key={report.reportId}
+                      onClick={() => handleSelectReport(report.reportId)}
+                      className={`p-3 rounded-md cursor-pointer border transition-all ${
+                        selectedReportId === report.reportId
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium">{report.companyName}</h4>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(report.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <Badge className={report.creditScore >= 70 ? 'bg-green-100 text-green-800' : 
+                                          report.creditScore >= 50 ? 'bg-amber-100 text-amber-800' : 
+                                          'bg-red-100 text-red-800'}>
+                          {report.creditScore}
+                        </Badge>
+                      </div>
+                      <div className="flex mt-2 gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {report.industry}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {report.year}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No reports found
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Report Details */}
+          <Card className="md:col-span-2">
+            {selectedReportId ? (
+              isLoadingReport ? (
+                <div className="flex justify-center items-center h-[400px]">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : selectedReport ? (
+                <Tabs defaultValue="overview">
+                  <CardHeader className="pb-0">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>{selectedReport.companyName}</CardTitle>
+                      <CreditScoreCard score={selectedReport.creditScore} />
+                    </div>
+                    <CardDescription>
+                      {selectedReport.industry} | Report Date: {new Date(selectedReport.date).toLocaleDateString()}
+                    </CardDescription>
+                    <TabsList className="mt-4">
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="ratios">Financial Ratios</TabsTrigger>
+                      <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+                    </TabsList>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <TabsContent value="overview">
+                      <ReportDetails report={selectedReport} />
+                    </TabsContent>
+                    <TabsContent value="ratios">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Metric</TableHead>
+                            <TableHead className="text-right">Value</TableHead>
+                            <TableHead>Assessment</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedReport.ratios.map((ratio: any, index: number) => {
+                            const isPositive = ratio.assessment === 'positive';
+                            const isNegative = ratio.assessment === 'negative';
+                            
+                            return (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <Badge variant="outline" className="font-normal">
+                                    {formatCategoryName(ratio.category)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {formatMetricName(ratio.metric)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {ratio.value}
+                                </TableCell>
+                                <TableCell>
+                                  <div className={`flex items-center ${
+                                    isPositive ? 'text-green-600' : 
+                                    isNegative ? 'text-red-600' : 'text-gray-600'
+                                  }`}>
+                                    {isPositive && <TrendingUp className="h-4 w-4 mr-1" />}
+                                    {isNegative && <TrendingDown className="h-4 w-4 mr-1" />}
+                                    {ratio.assessment === 'positive' ? 'Strong' : 
+                                     ratio.assessment === 'negative' ? 'Weak' : 'Neutral'}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TabsContent>
+                    <TabsContent value="recommendations">
+                      <div className="space-y-4">
+                        {selectedReport.recommendations.map((rec: string, index: number) => (
+                          <div key={index} className="flex gap-3 p-3 bg-gray-50 rounded-md">
+                            <div className="flex-shrink-0 bg-blue-100 text-blue-800 rounded-full h-6 w-6 flex items-center justify-center">
+                              {index + 1}
+                            </div>
+                            <p>{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+                  </CardContent>
+                </Tabs>
+              ) : (
+                <div className="flex justify-center items-center h-[400px] text-muted-foreground">
+                  Report not found
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+                <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium">No Report Selected</h3>
+                <p className="text-muted-foreground max-w-md mt-2">
+                  Select a company from the list to view credit analysis details and recommendations.
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default ReportsPage;

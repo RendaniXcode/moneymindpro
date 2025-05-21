@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { ChartBar, AreaChart, Database, DollarSign, Home } from "lucide-react";
+import { ChartBar, AreaChart, Database, DollarSign, Home, FileText } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import FileUploadButton from '@/components/dashboard/FileUploadButton';
 
@@ -49,6 +49,15 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onUploadComplete })
               <Link to="/dashboard" className="flex items-center gap-3">
                 <ChartBar className="h-4 w-4" />
                 <span>Dashboard</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={location.pathname === '/reports'} className="text-white hover:bg-blue-800">
+              <Link to="/reports" className="flex items-center gap-3">
+                <FileText className="h-4 w-4" />
+                <span>Credit Reports</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
