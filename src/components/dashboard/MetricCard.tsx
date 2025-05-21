@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from '@/lib/utils';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { TrendingDown, TrendingUp, Check, X } from 'lucide-react';
 
 interface MetricCardProps {
   title: string;
@@ -26,18 +26,42 @@ const MetricCard: React.FC<MetricCardProps> = ({
   return (
     <Card className={cn(
       "overflow-hidden relative",
-      status === 'approved' && "border-green-500 bg-green-50",
-      status === 'declined' && "border-red-500 bg-red-50",
+      status === 'approved' && "border-green-500",
+      status === 'declined' && "border-red-500",
       className
     )}>
       <CardContent className="p-4">
         {status !== 'neutral' ? (
-          <div className={cn(
-            "font-bold text-2xl flex items-center justify-center h-full",
-            status === 'approved' && "text-green-600",
-            status === 'declined' && "text-red-600"
-          )}>
-            {status === 'approved' ? 'APPROVED' : 'DECLINED'}
+          <div className="flex flex-col items-center justify-center h-full">
+            {/* Score Circle */}
+            <div className={cn(
+              "rounded-full w-24 h-24 flex items-center justify-center text-white font-bold text-3xl mb-4",
+              status === 'approved' ? "bg-green-500" : "bg-red-500"
+            )}>
+              {typeof value === 'number' ? value : ''}
+            </div>
+            
+            {/* Status Label */}
+            <div className={cn(
+              "flex items-center gap-2 font-bold text-xl",
+              status === 'approved' ? "text-green-600" : "text-red-600"
+            )}>
+              {status === 'approved' ? (
+                <>
+                  <Check className="h-5 w-5" />
+                  APPROVED
+                </>
+              ) : (
+                <>
+                  <X className="h-5 w-5" />
+                  DECLINED
+                </>
+              )}
+            </div>
+            
+            {description && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">{description}</p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-1">
