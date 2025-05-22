@@ -38,11 +38,19 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
       {/* Credit Decision */}
       <div>
         <h3 className="text-lg font-medium mb-1.5">Credit Decision</h3>
-        <div className="border rounded-md p-4 max-w-xs flex flex-col items-center border-green-200 bg-green-50">
-          <div className="h-20 w-20 rounded-full bg-green-500 flex items-center justify-center mb-2">
+        <div className={`border rounded-md p-4 max-w-xs flex flex-col items-center ${
+          approvalStatus === 'approved' 
+            ? 'border-green-200 bg-green-50' 
+            : 'border-red-200 bg-red-50'
+        }`}>
+          <div className={`h-20 w-20 rounded-full flex items-center justify-center mb-2 ${
+            approvalStatus === 'approved' ? 'bg-green-500' : 'bg-red-500'
+          }`}>
             <span className="text-3xl font-bold text-white">{report.creditScore}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-green-700 font-medium">
+          <div className={`flex items-center gap-1.5 font-medium ${
+            approvalStatus === 'approved' ? 'text-green-700' : 'text-red-700'
+          }`}>
             {approvalStatus === 'approved' ? (
               <><CheckCircle className="h-5 w-5" /> APPROVED</>
             ) : (
