@@ -102,7 +102,7 @@ export class S3Service {
         Key: key
       });
       
-      // Using getSignedUrl properly with the right types
+      // Using getSignedUrl with proper typing
       const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
       return url;
     } catch (error) {
@@ -123,6 +123,90 @@ export class S3Service {
       return response;
     } catch (error) {
       console.error('Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  // Create a folder in S3 (S3 doesn't really have folders, just objects with "/" in the key)
+  async createFolder(folderName: string, parentPath: string = '') {
+    try {
+      const folderKey = parentPath ? `${parentPath}/${folderName}/` : `${folderName}/`;
+      const command = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: folderKey,
+        Body: ''
+      });
+      
+      const result = await this.s3Client.send(command);
+      return result;
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      throw error;
+    }
+  }
+
+  // List folders (CommonPrefixes)
+  async listFolders() {
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Delimiter: '/'
+      });
+      
+      const response = await this.s3Client.send(command);
+      return response.CommonPrefixes || [];
+    } catch (error) {
+      console.error('Error listing folders:', error);
+      throw error;
+    }
+  }
+
+  // Delete an album (folder) and all its contents
+  async deleteAlbum(albumName: string) {
+    try {
+      // First list all objects in the album
+      const listCommand = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: `${albumName}/`
+      });
+      
+      const listResponse = await this.s3Client.send(listCommand);
+      
+      if (listResponse.Contents && listResponse.Contents.length > 0) {
+        // Delete all objects in the album
+        for (const item of listResponse.Contents) {
+          if (item.Key) {
+            await this.deleteFile(item.Key);
+          }
+        }
+      }
+      
+      // Finally delete the "folder" object itself
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: `${albumName}/`
+      });
+      
+      const response = await this.s3Client.send(command);
+      return response;
+    } catch (error) {
+      console.error('Error deleting album:', error);
+      throw error;
+    }
+  }
+
+  // Get a file from S3
+  async getFile(key: string) {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key
+      });
+      
+      const response = await this.s3Client.send(command);
+      return response;
+    } catch (error) {
+      console.error('Error getting file:', error);
       throw error;
     }
   }
