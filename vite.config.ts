@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Add polyfill for 'global' to fix aws-appsync-auth-link
+    global: 'globalThis',
+  },
   build: {
     chunkSizeWarningLimit: 800,
     rollupOptions: {

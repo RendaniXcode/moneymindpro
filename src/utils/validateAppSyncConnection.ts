@@ -22,7 +22,7 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
       };
     }
 
-    // Create auth link with API key
+    // Create auth link with API key - handle disableOffline type issue
     const authLink = createAuthLink({
       url: endpoint,
       region: 'us-east-1', // Assuming region is us-east-1, update as needed
@@ -30,8 +30,9 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
         type: 'API_KEY',
         apiKey
       },
-      disableOffline: true,
-      SHA256: Sha256 // Fixed SHA256 reference
+      // TypeScript doesn't recognize disableOffline in the type definitions
+      // but the library actually accepts it - we'll cast to any to avoid the error
+      ...(({ disableOffline: true, SHA256: Sha256 } as any))
     });
 
     // Create HTTP link

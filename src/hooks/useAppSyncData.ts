@@ -119,12 +119,11 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
   // Create auth link using aws-appsync-auth-link
   const authLink = createAuthLink({
     url: httpEndpoint,
-    region: 'us-east-1', // Make sure to match your AppSync region
+    region: 'us-east-1',
     auth: {
       type: 'API_KEY',
       apiKey
     },
-    disableOffline: true,
     SHA256: Sha256 // Fixed the SHA256 import
   });
 
@@ -478,7 +477,7 @@ const formatReportData = (appSyncData: any): Report | null => {
   let insights = [];
   let recommendations = [];
   let trends = { revenue: [0, 0, 0, 0, 0], profit: [0, 0, 0, 0, 0], debt: [0, 0, 0, 0, 0] };
-  let riskLevel: 'low' | 'medium' | 'high' = 'medium'; // Fixed the type
+  let riskLevel: 'low' | 'medium' | 'high' = 'medium';
   
   if (appSyncData.financialRatios) {
     try {
