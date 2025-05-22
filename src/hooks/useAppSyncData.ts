@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -6,6 +7,17 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import { createAuthLink } from 'aws-appsync-auth-link';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { Report } from './useReportsService';
+import { 
+  parseDynamoDBItem, 
+  formatFinancialRatios, 
+  formatPerformanceTrends,
+  formatRecommendations 
+} from '@/utils/dynamoDBParser';
+
+// Define the global object for aws-appsync-auth-link compatibility
+if (typeof window !== 'undefined' && !window.global) {
+  (window as any).global = window;
+}
 
 // Define types from the GraphQL schema
 export enum CreditDecision {
@@ -20,8 +32,8 @@ export enum ReportStatus {
   ARCHIVED = "ARCHIVED"
 }
 
-// Define the missing FinancialReports interface
-interface FinancialReports {
+// Define the FinancialReports interface
+export interface FinancialReports {
   companyId: string;
   reportDate: string;
   companyName: string;
@@ -152,7 +164,7 @@ const createApolloClient = () => {
 };
 
 // Create a singleton instance to be used throughout the app
-let apolloClient = null;
+let apolloClient: ApolloClient<any> | null = null;
 
 // Initialize client on demand to ensure environment variables are loaded
 const getApolloClient = () => {
@@ -409,69 +421,98 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
 const formatReportData = (appSyncData: any): Report | null => {
   if (!appSyncData) return null;
   
-  // Parse JSON strings from DynamoDB
+  console.log('Raw AppSync data:', appSyncData);
+  
+  // Check if data is in DynamoDB format
+  const isDynamoDBFormat = appSyncData.companyId?.S !== undefined;
+  
+  // If it's in DynamoDB format, parse it first
+  const data = isDynamoDBFormat ? parseDynamoDBItem(appSyncData) : appSyncData;
+  
+  // Parse JSON strings from DynamoDB or regular data
   let financialRatios = [];
   let insights = [];
   let recommendations = [];
   let trends = { revenue: [0, 0, 0, 0, 0], profit: [0, 0, 0, 0, 0], debt: [0, 0, 0, 0, 0] };
   let riskLevel: 'low' | 'medium' | 'high' = 'medium';
   
-  if (appSyncData.financialRatios) {
+  // Process financial ratios based on format
+  if (isDynamoDBFormat && appSyncData.financialRatios) {
+    financialRatios = formatFinancialRatios(appSyncData.financialRatios);
+  } else if (data.financialRatios) {
     try {
-      const ratiosObj = JSON.parse(appSyncData.financialRatios);
+      const ratiosObj = typeof data.financialRatios === 'string' 
+        ? JSON.parse(data.financialRatios) 
+        : data.financialRatios;
+        
       // Flatten the nested financial ratios structure
       Object.entries(ratiosObj).forEach(([category, metrics]: [string, any]) => {
-        Object.entries(metrics).forEach(([metric, data]: [string, any]) => {
+        Object.entries(metrics).forEach(([metric, metricData]: [string, any]) => {
           financialRatios.push({
             category,
             metric,
-            value: data.value,
-            explanation: data.explanation,
-            assessment: data.assessment || 'neutral'
+            value: typeof metricData === 'object' ? metricData.value : metricData,
+            explanation: typeof metricData === 'object' ? metricData.explanation : `${metric} for ${category}`,
+            assessment: typeof metricData === 'object' ? (metricData.assessment || 'neutral') : 'neutral'
           });
         });
       });
     } catch (e) {
-      console.error('Error parsing financialRatios JSON:', e);
+      console.error('Error parsing financialRatios:', e);
     }
   }
   
-  if (appSyncData.recommendations) {
+  // Process recommendations based on format
+  if (isDynamoDBFormat && appSyncData.recommendations) {
+    recommendations = formatRecommendations(appSyncData.recommendations);
+  } else if (data.recommendations) {
     try {
-      recommendations = JSON.parse(appSyncData.recommendations);
+      recommendations = typeof data.recommendations === 'string' 
+        ? JSON.parse(data.recommendations) 
+        : data.recommendations;
     } catch (e) {
-      console.error('Error parsing recommendations JSON:', e);
+      console.error('Error parsing recommendations:', e);
     }
   }
   
-  if (appSyncData.performanceTrends) {
+  // Process performance trends based on format
+  if (isDynamoDBFormat && appSyncData.performanceTrends) {
+    trends = formatPerformanceTrends(appSyncData.performanceTrends);
+  } else if (data.performanceTrends) {
     try {
-      trends = JSON.parse(appSyncData.performanceTrends);
+      trends = typeof data.performanceTrends === 'string' 
+        ? JSON.parse(data.performanceTrends) 
+        : data.performanceTrends;
     } catch (e) {
-      console.error('Error parsing performanceTrends JSON:', e);
+      console.error('Error parsing performanceTrends:', e);
     }
   }
   
   // Calculate risk level based on credit score
-  if (appSyncData.creditScore) {
-    if (appSyncData.creditScore >= 75) riskLevel = 'low';
-    else if (appSyncData.creditScore >= 60) riskLevel = 'medium';
-    else riskLevel = 'high';
-  }
+  const creditScore = isDynamoDBFormat 
+    ? Number(appSyncData.creditScore?.N || 0) 
+    : (data.creditScore || 0);
+    
+  if (creditScore >= 75) riskLevel = 'low';
+  else if (creditScore >= 60) riskLevel = 'medium';
+  else riskLevel = 'high';
   
+  // Create standardized report format
   return {
-    reportId: `${appSyncData.companyId}-${appSyncData.reportDate}`,
-    companyName: appSyncData.companyName,
-    industry: appSyncData.industry,
-    date: appSyncData.reportDate,
-    year: new Date(appSyncData.reportDate).getFullYear().toString(),
-    creditScore: appSyncData.creditScore || 0,
+    reportId: `${isDynamoDBFormat ? appSyncData.companyId.S : data.companyId}-${isDynamoDBFormat ? appSyncData.reportDate.S : data.reportDate}`,
+    companyName: isDynamoDBFormat ? appSyncData.companyName.S : data.companyName,
+    industry: isDynamoDBFormat ? appSyncData.industry.S : data.industry,
+    date: isDynamoDBFormat ? appSyncData.reportDate.S : data.reportDate,
+    year: isDynamoDBFormat 
+      ? new Date(appSyncData.reportDate.S).getFullYear().toString() 
+      : new Date(data.reportDate).getFullYear().toString(),
+    creditScore: creditScore,
     ratios: financialRatios,
     insights: insights,
     recommendations: recommendations,
     riskLevel: riskLevel,
     trends: trends,
-    companyProfile: appSyncData.companyProfile || ''
+    companyProfile: isDynamoDBFormat ? (appSyncData.companyProfile?.S || '') : (data.companyProfile || '')
   };
 };
 

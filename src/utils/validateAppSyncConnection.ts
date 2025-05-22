@@ -3,6 +3,11 @@ import { ApolloClient, InMemoryCache, HttpLink, gql, ApolloLink } from '@apollo/
 import { createAuthLink } from 'aws-appsync-auth-link';
 import { Sha256 } from '@aws-crypto/sha256-js';
 
+// Define the global object for aws-appsync-auth-link compatibility
+if (typeof window !== 'undefined' && !window.global) {
+  (window as any).global = window;
+}
+
 const TEST_QUERY = gql`
   query TestConnection {
     getLatestReport(companyId: "test") {

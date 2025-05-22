@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Folder } from 'lucide-react';
 import { S3Service } from '@/services/s3Service';
 
-// Temporary fix for the error
 interface CommonPrefix {
   Prefix: string;
 }
@@ -20,9 +19,9 @@ const AlbumList = () => {
     const fetchAlbums = async () => {
       try {
         setLoading(true);
-        const response = await s3Service.listAlbums();
+        const response = await s3Service.listAlbums(''); // Pass empty string as parameter
         // Fix for CommonPrefixes error - now extracting common prefixes correctly
-        const albumPrefixes = response.CommonPrefixes || [];
+        const albumPrefixes = response?.CommonPrefixes || [];
         setAlbums(albumPrefixes);
       } catch (error) {
         console.error('Error fetching albums:', error);
