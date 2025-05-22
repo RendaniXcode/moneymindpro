@@ -2,22 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { S3Service } from '@/services/s3Service';
-
-// Fix the file upload function to accept a File object
-const handleFileUpload = async (file: File, album: string) => {
-  try {
-    // Implementation
-  } catch (error) {
-    console.error('Error uploading file:', error);
-  }
-};
+import { s3Service } from '@/services/s3Service';
 
 const PhotoGallery = ({ albumName }: { albumName: string }) => {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const s3Service = new S3Service();
   
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -60,9 +50,7 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
       // Upload each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const key = `${albumName}/${Date.now()}_${file.name}`;
-        
-        await s3Service.uploadFile(key, file);
+        await s3Service.uploadFile(file, albumName);
       }
       
       // Refresh the photo list
@@ -87,18 +75,14 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
     }
   };
   
-  // Fix for the error in line 80
-  const uploadFile = (file: any) => {
-    // Convert string to File object if needed
-    const actualFile = file instanceof File ? file : new File([file], file.name || 'image.jpg');
-    // Now we can call our handler with the correct type
-    handleFileUpload(actualFile, albumName);
-  };
-  
-  // Fix for the error in line 108
-  const deletePhoto = (key: string) => {
-    // Call with only one argument as expected
-    s3Service.deleteFile(key);
+  const deletePhoto = async (key: string) => {
+    try {
+      await s3Service.deleteFile(key);
+      // Remove the deleted photo from the state
+      setPhotos(photos.filter(photo => photo.key !== key));
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
   };
   
   if (loading) {

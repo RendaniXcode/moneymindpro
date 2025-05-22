@@ -4,16 +4,12 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Folder } from 'lucide-react';
-import { S3Service } from '@/services/s3Service';
-
-interface CommonPrefix {
-  Prefix: string;
-}
+import { S3Service, s3Service } from '@/services/s3Service';
+import { CommonPrefix } from '@aws-sdk/client-s3';
 
 const AlbumList = () => {
   const [albums, setAlbums] = useState<CommonPrefix[]>([]);
   const [loading, setLoading] = useState(true);
-  const s3Service = new S3Service();
 
   useEffect(() => {
     const fetchAlbums = async () => {

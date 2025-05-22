@@ -58,8 +58,12 @@ export class S3Service {
   }
 
   // Upload a file to S3
-  async uploadFile(key: string, file: File) {
+  async uploadFile(file: File, folderPath?: string, progressCallback?: (progress: number) => void) {
     try {
+      const key = folderPath 
+        ? `${folderPath}/${Date.now()}_${file.name}`
+        : `${Date.now()}_${file.name}`;
+        
       const upload = new Upload({
         client: this.s3Client,
         params: {
@@ -67,8 +71,20 @@ export class S3Service {
           Key: key,
           Body: file,
           ContentType: file.type
-        }
+        },
+        queueSize: 4,
+        partSize: 1024 * 1024 * 5, // 5MB chunks
       });
+
+      // Add progress tracking if callback provided
+      if (progressCallback) {
+        upload.on('httpUploadProgress', (progress) => {
+          if (progress.loaded && progress.total) {
+            const percentLoaded = Math.round((progress.loaded / progress.total) * 100);
+            progressCallback(percentLoaded);
+          }
+        });
+      }
 
       const result = await upload.done();
       return result;
@@ -110,3 +126,6 @@ export class S3Service {
     }
   }
 }
+
+// Create a singleton instance for use throughout the app
+export const s3Service = new S3Service();
