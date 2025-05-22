@@ -2,7 +2,7 @@
 import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
 import { createAuthLink } from 'aws-appsync-auth-link';
 import { createHttpLink } from '@apollo/client/link/http';
-import { SHA256 } from '@aws-crypto/sha256-js';
+import { Sha256 } from '@aws-crypto/sha256-js';
 
 /**
  * Validates connection to AWS AppSync GraphQL API
@@ -31,7 +31,7 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
         apiKey
       },
       disableOffline: true,
-      SHA256
+      SHA256: Sha256 // Fixed SHA256 reference
     });
 
     // Create HTTP link

@@ -1,11 +1,10 @@
-
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink, NormalizedCacheObject } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createAuthLink } from 'aws-appsync-auth-link';
-import { SHA256 } from '@aws-crypto/sha256-js';
+import { Sha256 } from '@aws-crypto/sha256-js';
 import { Report } from './useReportsService';
 
 // Define types from the GraphQL schema
@@ -126,7 +125,7 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
       apiKey
     },
     disableOffline: true,
-    SHA256
+    SHA256: Sha256 // Fixed the SHA256 import
   });
 
   // HTTP link
@@ -479,7 +478,7 @@ const formatReportData = (appSyncData: any): Report | null => {
   let insights = [];
   let recommendations = [];
   let trends = { revenue: [0, 0, 0, 0, 0], profit: [0, 0, 0, 0, 0], debt: [0, 0, 0, 0, 0] };
-  let riskLevel = 'medium';
+  let riskLevel: 'low' | 'medium' | 'high' = 'medium'; // Fixed the type
   
   if (appSyncData.financialRatios) {
     try {
