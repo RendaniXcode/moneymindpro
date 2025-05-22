@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,19 +29,25 @@ const DocumentAnalysisPage: React.FC = () => {
   const loadDocuments = async () => {
     try {
       setLoading(true);
-      const financialDocs = await s3Service.listFiles('financial-statements');
+      const response = await s3Service.listFiles('financial-statements');
+      
+      // Handle S3 response properly checking if Contents exists and is an array
+      const s3Objects = response.Contents || [];
       
       // Convert to our document format
-      const docs = financialDocs.map(file => ({
-        name: file.name,
-        key: file.key,
-        url: file.url,
-        size: file.size,
-        lastModified: file.lastModified,
-        analyzed: false // We'd track this in a database in a real app
+      const financialDocs = await Promise.all(s3Objects.map(async (file) => {
+        const url = await s3Service.getFileUrl(file.Key || '');
+        return {
+          name: file.Key?.split('/').pop() || 'Unknown',
+          key: file.Key || '',
+          url,
+          size: file.Size || 0,
+          lastModified: file.LastModified,
+          analyzed: false // We'd track this in a database in a real app
+        };
       }));
       
-      setDocuments(docs);
+      setDocuments(financialDocs);
     } catch (error) {
       console.error('Error loading documents:', error);
       toast({
