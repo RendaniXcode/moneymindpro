@@ -34,10 +34,10 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
   const approvalStatus = report.creditScore >= 70 ? 'approved' : 'declined';
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Credit Score Decision Card */}
-      <div className="mb-8">
-        <h3 className="text-lg font-medium mb-3">Credit Decision</h3>
+      <div className="mb-4">
+        <h3 className="text-lg font-medium mb-2">Credit Decision</h3>
         <div className="max-w-xs">
           <MetricCard 
             title="Credit Score" 
@@ -49,17 +49,17 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
       </div>
       
       <div>
-        <h3 className="text-lg font-medium mb-3">Company Profile</h3>
+        <h3 className="text-lg font-medium mb-2">Company Profile</h3>
         <p className="text-muted-foreground">{report.companyProfile}</p>
       </div>
       
       <div>
-        <h3 className="text-lg font-medium mb-3">Financial Performance Trends</h3>
-        <div className="h-[300px]">
+        <h3 className="text-lg font-medium mb-2">Financial Performance Trends</h3>
+        <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
-              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
@@ -74,8 +74,8 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card className="p-3">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Revenue Growth</h4>
             {Number(revenueGrowth) > 0 ? (
@@ -84,15 +84,15 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
               <TrendingDown className="h-5 w-5 text-red-600" />
             )}
           </div>
-          <div className="mt-2 text-2xl font-bold">
+          <div className="mt-1 text-2xl font-bold">
             {revenueGrowth}%
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
+          <div className="text-xs text-muted-foreground">
             Over the last 5 years
           </div>
         </Card>
         
-        <Card className="p-4">
+        <Card className="p-3">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Profit Growth</h4>
             {Number(profitGrowth) > 0 ? (
@@ -101,15 +101,15 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
               <TrendingDown className="h-5 w-5 text-red-600" />
             )}
           </div>
-          <div className="mt-2 text-2xl font-bold">
+          <div className="mt-1 text-2xl font-bold">
             {profitGrowth}%
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
+          <div className="text-xs text-muted-foreground">
             Over the last 5 years
           </div>
         </Card>
         
-        <Card className="p-4">
+        <Card className="p-3">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Debt to Revenue</h4>
             {Number(debtToRevenue) < 0.5 ? (
@@ -118,29 +118,29 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
               <AlertCircle className="h-5 w-5 text-amber-600" />
             )}
           </div>
-          <div className="mt-2 text-2xl font-bold">
+          <div className="mt-1 text-2xl font-bold">
             {debtToRevenue}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
+          <div className="text-xs text-muted-foreground">
             Current ratio
           </div>
         </Card>
       </div>
       
       <div>
-        <h3 className="text-lg font-medium mb-3">Risk Assessment</h3>
-        <div className={`p-4 rounded-md ${
+        <h3 className="text-lg font-medium mb-2">Risk Assessment</h3>
+        <div className={`p-3 rounded-md ${
           report.riskLevel === 'low' ? 'bg-green-50 border border-green-200' :
           report.riskLevel === 'medium' ? 'bg-amber-50 border border-amber-200' :
           'bg-red-50 border border-red-200'
         }`}>
           <div className="flex items-start">
-            <div className={`rounded-full p-2 mr-3 ${
+            <div className={`rounded-full p-1.5 mr-2 ${
               report.riskLevel === 'low' ? 'bg-green-100' :
               report.riskLevel === 'medium' ? 'bg-amber-100' :
               'bg-red-100'
             }`}>
-              <AlertCircle className={`h-5 w-5 ${
+              <AlertCircle className={`h-4 w-4 ${
                 report.riskLevel === 'low' ? 'text-green-700' :
                 report.riskLevel === 'medium' ? 'text-amber-700' :
                 'text-red-700'
@@ -152,7 +152,7 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
                 report.riskLevel === 'medium' ? 'Medium Risk Profile' :
                 'High Risk Profile'}
               </h4>
-              <p className="text-sm mt-1">
+              <p className="text-sm">
                 {report.riskLevel === 'low' ? 
                   'This company demonstrates strong financial health with minimal credit risk. It has stable cash flows, manageable debt levels, and consistent profitability.' :
                 report.riskLevel === 'medium' ? 
@@ -166,14 +166,14 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
       </div>
       
       <div>
-        <h3 className="text-lg font-medium mb-3">Key Insights</h3>
-        <div className="space-y-2">
+        <h3 className="text-lg font-medium mb-2">Key Insights</h3>
+        <div className="space-y-1.5">
           {report.insights.map((insight, index) => (
-            <div key={index} className="flex gap-3 p-3 bg-gray-50 rounded-md">
-              <div className="flex-shrink-0 bg-blue-100 text-blue-800 rounded-full h-6 w-6 flex items-center justify-center text-sm font-medium">
+            <div key={index} className="flex gap-2 p-2 bg-gray-50 rounded-md">
+              <div className="flex-shrink-0 bg-blue-100 text-blue-800 rounded-full h-5 w-5 flex items-center justify-center text-xs font-medium">
                 {index + 1}
               </div>
-              <p>{insight}</p>
+              <p className="text-sm">{insight}</p>
             </div>
           ))}
         </div>
