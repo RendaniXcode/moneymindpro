@@ -98,22 +98,37 @@ interface FinancialReportsConnection {
   nextToken?: string;
 }
 
-// Create Apollo Client instance
-// Note: In a real production app, you would implement API key authentication
-// or other auth mechanisms required by AppSync
+// Create Apollo Client instance with API key authentication
 const createApolloClient = () => {
+  // Get API key from environment variables
+  const apiKey = import.meta.env.VITE_APPSYNC_API_KEY || '';
+  
+  // Log configuration info (for debugging)
+  console.log('AppSync Configuration:');
+  console.log('- API Key provided:', apiKey ? 'Yes' : 'No');
+  
+  // Define endpoints from environment variables or use defaults
+  const httpEndpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
+    'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql';
+  
+  const wsEndpoint = import.meta.env.VITE_APPSYNC_REALTIME_ENDPOINT || 
+    'wss://mbk6kqyz5jdednao4spo6lntn4.appsync-realtime-api.us-east-1.amazonaws.com/graphql';
+
+  // HTTP link with API key authentication
   const httpLink = new HttpLink({
-    uri: 'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql',
-    // Add your authentication method here (API key, IAM, Cognito, etc.)
-    // headers: { 'x-api-key': 'YOUR_API_KEY' }
+    uri: httpEndpoint,
+    headers: {
+      'x-api-key': apiKey
+    }
   });
 
   // WebSocket link for real-time subscriptions
   const wsLink = new GraphQLWsLink(
     createClient({
-      url: 'wss://mbk6kqyz5jdednao4spo6lntn4.appsync-realtime-api.us-east-1.amazonaws.com/graphql',
-      // Add authentication as needed
-      // connectionParams: { ... }
+      url: wsEndpoint,
+      connectionParams: {
+        'x-api-key': apiKey
+      }
     })
   );
 
@@ -137,8 +152,15 @@ const createApolloClient = () => {
 };
 
 // Create a singleton instance to be used throughout the app
-// In a real app, you might want to provide this via React Context
-const apolloClient = createApolloClient();
+let apolloClient: ApolloClient<any> | null = null;
+
+// Initialize client on demand to ensure environment variables are loaded
+const getApolloClient = () => {
+  if (!apolloClient) {
+    apolloClient = createApolloClient();
+  }
+  return apolloClient;
+};
 
 // GraphQL query definitions
 const GET_FINANCIAL_REPORTS = gql`
@@ -421,8 +443,17 @@ export const useAppSyncData = () => {
   
   const getFinancialReport = async (companyId: string, reportDate: string) => {
     try {
+      // Check if API key is available
+      const apiKey = import.meta.env.VITE_APPSYNC_API_KEY;
+      if (!apiKey) {
+        console.warn("AppSync API Key not provided in environment variables. Using mock data.");
+        const mockResponse = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
+        return formatReportData(mockResponse);
+      }
+      
       // Use Apollo Client to make an actual GraphQL query
-      const response = await apolloClient.query({
+      const client = getApolloClient();
+      const response = await client.query({
         query: GET_FINANCIAL_REPORTS,
         variables: { companyId, reportDate }
       });
@@ -440,8 +471,20 @@ export const useAppSyncData = () => {
   
   const fetchAllReports = async (filter?: TableFinancialReportsFilterInput, limit?: number) => {
     try {
+      // Check if API key is available
+      const apiKey = import.meta.env.VITE_APPSYNC_API_KEY;
+      if (!apiKey) {
+        console.warn("AppSync API Key not provided in environment variables. Using mock data.");
+        const mockResponse = await mockGraphQLCall('listFinancialReports', { filter, limit });
+        if (mockResponse && mockResponse.items) {
+          return mockResponse.items.map(item => formatReportData(item)).filter(Boolean);
+        }
+        return [];
+      }
+      
       // Use Apollo Client for the actual query
-      const response = await apolloClient.query({
+      const client = getApolloClient();
+      const response = await client.query({
         query: LIST_FINANCIAL_REPORTS,
         variables: { filter, limit }
       });
