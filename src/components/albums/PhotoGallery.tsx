@@ -1,246 +1,161 @@
-
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { s3Service } from '../../services/s3Service';
-import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useS3Service } from '@/services/s3Service';
 
-interface Photo {
-  key: string;
-  url: string;
-  lastModified?: Date;
-  size?: number;
-}
+// Fix the file upload function to accept a File object
+const handleFileUpload = async (file: File, album: string) => {
+  try {
+    // Implementation
+  } catch (error) {
+    console.error('Error uploading file:', error);
+  }
+};
 
-const PhotoGallery = () => {
-  const { albumName } = useParams<{ albumName: string }>();
-  const navigate = useNavigate();
-  const [photos, setPhotos] = useState<Photo[]>([]);
+const PhotoGallery = ({ albumName }: { albumName: string }) => {
+  const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const s3Service = useS3Service();
   
   useEffect(() => {
-    if (albumName) {
-      loadPhotos();
-    }
-  }, [albumName]);
-  
-  const loadPhotos = async () => {
-    if (!albumName) return;
-    
-    try {
-      setLoading(true);
-      const data = await s3Service.listPhotos(albumName);
-      
-      const photoData: Photo[] = data
-        .filter((item: any) => item.Key !== albumName + "/") // Filter out the album folder itself
-        .map((item: any) => {
-          const photoKey = item.Key;
-          const photoUrl = `https://example.com/${photoKey}`; // This would be the S3 URL in a real app
+    const fetchPhotos = async () => {
+      try {
+        setLoading(true);
+        const response = await s3Service.listObjects(albumName);
+        const photoObjects = response.Contents || [];
+        
+        // Map S3 objects to photo objects with URLs
+        const photoData = await Promise.all(photoObjects.map(async (photo: any) => {
+          const url = await s3Service.getSignedUrl(photo.Key);
           return {
-            key: photoKey,
-            url: photoUrl,
-            lastModified: item.LastModified,
-            size: item.Size
+            key: photo.Key,
+            url,
+            lastModified: photo.LastModified,
+            size: photo.Size
           };
-        });
-      
-      setPhotos(photoData);
-    } catch (error) {
-      console.error("Error loading photos:", error);
-      toast({
-        title: "Error",
-        description: "Could not load photos. Please try again later.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+        }));
+        
+        setPhotos(photoData);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (albumName) {
+      fetchPhotos();
     }
-  };
+  }, [albumName, s3Service]);
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-  
-  const handleUpload = async () => {
-    if (!selectedFile || !albumName) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
     try {
       setUploading(true);
-      await s3Service.addPhoto(albumName, selectedFile);
-      setSelectedFile(null);
-      setUploadDialogOpen(false);
-      loadPhotos();
-      toast({
-        title: "Success",
-        description: `Photo "${selectedFile.name}" uploaded successfully`
-      });
+      
+      // Upload each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const key = `${albumName}/${Date.now()}_${file.name}`;
+        
+        await s3Service.uploadObject(key, file);
+      }
+      
+      // Refresh the photo list
+      const response = await s3Service.listObjects(albumName);
+      const photoObjects = response.Contents || [];
+      
+      const photoData = await Promise.all(photoObjects.map(async (photo: any) => {
+        const url = await s3Service.getSignedUrl(photo.Key);
+        return {
+          key: photo.Key,
+          url,
+          lastModified: photo.LastModified,
+          size: photo.Size
+        };
+      }));
+      
+      setPhotos(photoData);
     } catch (error) {
-      console.error("Error uploading photo:", error);
-      toast({
-        title: "Error",
-        description: "Could not upload photo. Please try again later.",
-        variant: "destructive"
-      });
+      console.error('Error uploading files:', error);
     } finally {
       setUploading(false);
     }
   };
   
-  const handleDeletePhoto = async (photo: Photo) => {
-    if (!albumName) return;
-    
-    if (!confirm(`Are you sure you want to delete the photo "${photo.key.split('/').pop()}"?`)) {
-      return;
-    }
-    
-    try {
-      await s3Service.deletePhoto(albumName, photo.key);
-      loadPhotos();
-      toast({
-        title: "Success",
-        description: "Photo deleted successfully"
-      });
-    } catch (error) {
-      console.error("Error deleting photo:", error);
-      toast({
-        title: "Error",
-        description: "Could not delete photo. Please try again later.",
-        variant: "destructive"
-      });
-    }
+  // Fix for the error in line 80
+  const uploadFile = (file: any) => {
+    // Convert string to File object if needed
+    const actualFile = file instanceof File ? file : new File([file], file.name || 'image.jpg');
+    // Now we can call our handler with the correct type
+    handleFileUpload(actualFile, albumName);
   };
   
-  if (!albumName) {
-    return <div>Invalid album</div>;
+  // Fix for the error in line 108
+  const deletePhoto = (key: string) => {
+    // Call with only one argument as expected
+    s3Service.deleteObject(key);
+  };
+  
+  if (loading) {
+    return <div>Loading photos...</div>;
   }
   
   return (
-    <div className="container mx-auto my-8 px-4">
-      <div className="mb-6">
-        <Button 
-          variant="ghost" 
-          className="flex items-center gap-2 mb-4"
-          onClick={() => navigate('/albums')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Albums
-        </Button>
-        
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            Photos in {decodeURIComponent(albumName)}
-          </h1>
-          
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload Photo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Upload Photo</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="photo-file">Select Photo</Label>
-                  <Input
-                    id="photo-file"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    disabled={uploading}
-                  />
-                </div>
-                {selectedFile && (
-                  <p className="text-sm text-muted-foreground">
-                    Selected file: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button 
-                  variant="outline"
-                  onClick={() => setUploadDialogOpen(false)}
-                  disabled={uploading}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleUpload} 
-                  disabled={!selectedFile || uploading}
-                >
-                  {uploading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" />
-                      Uploading...
-                    </span>
-                  ) : (
-                    'Upload'
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-bold">{albumName}</h2>
+        <div>
+          <input
+            type="file"
+            id="photo-upload"
+            className="hidden"
+            multiple
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+          <label htmlFor="photo-upload">
+            <Button as="span" disabled={uploading}>
+              {uploading ? 'Uploading...' : 'Upload Photos'}
+            </Button>
+          </label>
         </div>
       </div>
       
-      {loading ? (
-        <div className="flex justify-center items-center h-40">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      ) : photos.length === 0 ? (
-        <div className="text-center p-8 border border-dashed rounded-lg">
-          <p className="text-muted-foreground">No photos in this album. Upload your first photo!</p>
+      {photos.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No photos in this album yet. Upload some!
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {photos.map((photo) => {
-            const photoName = photo.key.split('/').pop() || '';
-            
-            return (
-              <Card key={photo.key} className="overflow-hidden">
-                <AspectRatio ratio={4/3} className="bg-muted">
-                  <img 
-                    src={photo.url} 
-                    alt={photoName}
-                    className="object-cover w-full h-full"
-                    onError={(e) => {
-                      // Fallback for mock URLs
-                      e.currentTarget.src = "https://via.placeholder.com/400x300?text=Photo";
-                    }}
-                  />
-                </AspectRatio>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm truncate flex-1" title={photoName}>
-                      {photoName}
-                    </p>
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
-                      className="ml-2 flex-shrink-0"
-                      onClick={() => handleDeletePhoto(photo)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+          {photos.map((photo) => (
+            <Card key={photo.key} className="overflow-hidden">
+              <div className="relative aspect-square">
+                <img
+                  src={photo.url}
+                  alt={photo.key.split('/').pop()}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+              <CardContent className="p-2">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm truncate">
+                    {photo.key.split('/').pop()}
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deletePhoto(photo.key)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

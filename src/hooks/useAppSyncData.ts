@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink, NormalizedCacheObject } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
@@ -20,103 +20,24 @@ export enum ReportStatus {
   ARCHIVED = "ARCHIVED"
 }
 
-// Interface for the DynamoDB/AppSync data format
-export interface FinancialReports {
-  companyId: string;
-  reportDate: string;
-  companyName: string;
-  industry: string;
-  creditScore?: number;
-  creditDecision: CreditDecision;
-  reportStatus: ReportStatus;
-  lastUpdated?: string;
-  financialRatios?: string; // AWSJSON
-  recommendations?: string; // AWSJSON
-  performanceTrends?: string; // AWSJSON
-}
-
-// Interface for filter inputs
-export interface TableFinancialReportsFilterInput {
-  companyId?: TableStringFilterInput;
-  reportDate?: TableStringFilterInput;
-  companyName?: TableStringFilterInput;
-  industry?: TableStringFilterInput;
-  creditDecision?: TableCreditDecisionFilterInput;
-  reportStatus?: TableReportStatusFilterInput;
-  creditScore?: TableIntFilterInput;
-  lastUpdated?: TableStringFilterInput;
-}
-
-interface TableStringFilterInput {
-  eq?: string;
-  ne?: string;
-  le?: string;
-  lt?: string;
-  ge?: string;
-  gt?: string;
-  contains?: string;
-  notContains?: string;
-  between?: string[];
-  beginsWith?: string;
-  attributeExists?: boolean;
-  size?: ModelSizeInput;
-}
-
-interface TableCreditDecisionFilterInput {
-  eq?: CreditDecision;
-  ne?: CreditDecision;
-  attributeExists?: boolean;
-}
-
-interface TableReportStatusFilterInput {
-  eq?: ReportStatus;
-  ne?: ReportStatus;
-  attributeExists?: boolean;
-}
-
-interface TableIntFilterInput {
-  eq?: number;
-  ne?: number;
-  le?: number;
-  lt?: number;
-  ge?: number;
-  gt?: number;
-  between?: number[];
-  attributeExists?: boolean;
-}
-
-interface ModelSizeInput {
-  ne?: number;
-  eq?: number;
-  le?: number;
-  lt?: number;
-  ge?: number;
-  gt?: number;
-  between?: number[];
-}
-
-interface FinancialReportsConnection {
-  items: FinancialReports[];
-  nextToken?: string;
-}
-
 // Create Apollo Client instance with API key authentication and proper error handling
-const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
+const createApolloClient = () => {
   // Get API key and endpoints from environment variables
   const apiKey = import.meta.env.VITE_APPSYNC_API_KEY || '';
   
-  // Log configuration info (for debugging)
+  // Log configuration info (for debugging) - safely
   console.log('AppSync Configuration:');
   console.log('- API Key provided:', apiKey ? 'Yes' : 'No');
   
   // Define endpoints from environment variables or use defaults
   const httpEndpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
     'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql';
-  
   const wsEndpoint = import.meta.env.VITE_APPSYNC_REALTIME_ENDPOINT || 
     'wss://mbk6kqyz5jdednao4spo6lntn4.appsync-realtime-api.us-east-1.amazonaws.com/graphql';
-
+  
   // Create auth link using aws-appsync-auth-link
+  // TypeScript doesn't recognize disableOffline in the type definitions
+  // but the library actually accepts it - we'll cast to any to avoid the error
   const authLink = createAuthLink({
     url: httpEndpoint,
     region: 'us-east-1',
@@ -124,32 +45,29 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
       type: 'API_KEY',
       apiKey
     },
-    SHA256: Sha256 // Fixed the SHA256 import
+    ...(({ disableOffline: true, SHA256: Sha256 } as any))
   });
-
+  
   // HTTP link
   const httpLink = new HttpLink({
     uri: httpEndpoint
   });
-
+  
   // WebSocket link for real-time subscriptions with auth
-  const wsLink = new GraphQLWsLink(
-    createClient({
-      url: wsEndpoint,
-      connectionParams: {
-        'x-api-key': apiKey
-      }
-    })
-  );
-
+  const wsLink = new GraphQLWsLink(createClient({
+    url: wsEndpoint,
+    connectionParams: {
+      'x-api-key': apiKey
+    }
+  }));
+  
   // Error handling link
   const errorLink = new ApolloLink((operation, forward) => {
     return forward(operation).map((response) => {
       if (response.errors && response.errors.length > 0) {
         console.error('GraphQL Errors:', response.errors);
-        
         // You can handle specific error types here
-        response.errors.forEach(err => {
+        response.errors.forEach((err) => {
           const errorCode = err.extensions?.code;
           if (errorCode === 'UNAUTHENTICATED') {
             console.error('Authentication error. Check your API key.');
@@ -159,23 +77,24 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
       return response;
     });
   });
-
+  
   // Use split to route operations based on their type
   const splitLink = split(
     ({ query }) => {
       const definition = getMainDefinition(query);
-      return (
-        definition.kind === 'OperationDefinition' &&
-        definition.operation === 'subscription'
-      );
+      return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
     },
     wsLink,
     httpLink
   );
-
+  
   // Combine links with auth and error handling
-  const link = ApolloLink.from([errorLink, authLink, splitLink]);
-
+  const link = ApolloLink.from([
+    errorLink,
+    authLink,
+    splitLink
+  ]);
+  
   // Create and return Apollo client with optimized cache settings
   return new ApolloClient({
     link,
@@ -189,7 +108,10 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
               merge(existing = { items: [] }, incoming) {
                 return {
                   ...incoming,
-                  items: [...existing.items, ...incoming.items]
+                  items: [
+                    ...existing.items,
+                    ...incoming.items
+                  ]
                 };
               }
             }
@@ -200,25 +122,25 @@ const createApolloClient = (): ApolloClient<NormalizedCacheObject> => {
     defaultOptions: {
       watchQuery: {
         fetchPolicy: 'cache-and-network',
-        errorPolicy: 'all',
+        errorPolicy: 'all'
       },
       query: {
         fetchPolicy: 'network-only',
-        errorPolicy: 'all',
+        errorPolicy: 'all'
       },
       mutate: {
-        errorPolicy: 'all',
-      },
+        errorPolicy: 'all'
+      }
     },
-    connectToDevTools: import.meta.env.DEV, // Only connect to dev tools in development
+    connectToDevTools: import.meta.env.DEV
   });
 };
 
 // Create a singleton instance to be used throughout the app
-let apolloClient: ApolloClient<NormalizedCacheObject> | null = null;
+let apolloClient = null;
 
 // Initialize client on demand to ensure environment variables are loaded
-const getApolloClient = (): ApolloClient<NormalizedCacheObject> => {
+const getApolloClient = () => {
   if (!apolloClient) {
     apolloClient = createApolloClient();
   }
@@ -543,110 +465,62 @@ const formatReportData = (appSyncData: any): Report | null => {
  * Provides methods for querying financial reports data
  */
 export const useAppSyncData = () => {
+  // Get the Apollo client
+  const client = getApolloClient();
+  
   /**
-   * Fetches a specific financial report by company ID and date
-   * @param companyId The company ID
-   * @param reportDate The report date
-   * @returns Formatted report data
+   * Fetches a financial report by company ID and report date
+   * @param companyId Company identifier
+   * @param reportDate Date of the report
+   * @returns Normalized report data
    */
   const getFinancialReport = async (companyId: string, reportDate: string) => {
     try {
-      // Check if API key is available
-      const apiKey = import.meta.env.VITE_APPSYNC_API_KEY;
-      if (!apiKey) {
-        console.warn("AppSync API Key not provided in environment variables. Using mock data.");
-        const mockResponse = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
-        return formatReportData(mockResponse);
+      // Try to use the real GraphQL API if we have an API key
+      if (import.meta.env.VITE_APPSYNC_API_KEY) {
+        const { data } = await client.query({
+          query: GET_FINANCIAL_REPORTS,
+          variables: { companyId, reportDate },
+          fetchPolicy: 'network-only' // Ensures fresh data
+        });
+        
+        return formatReportData(data.getFinancialReports);
+      } else {
+        // Fallback to mock data if no API key
+        console.warn('No API key found, using mock data');
+        const mockData = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
+        return formatReportData(mockData);
       }
-      
-      // Use Apollo Client to make an actual GraphQL query
-      const client = getApolloClient();
-      const response = await client.query({
-        query: GET_FINANCIAL_REPORTS,
-        variables: { companyId, reportDate },
-        fetchPolicy: 'network-only' // Force network request to ensure fresh data
-      });
-      
-      return formatReportData(response.data?.getFinancialReports);
     } catch (error) {
-      console.error("Error fetching financial report from AppSync:", error);
-      
-      // Improved error handling with more detailed logging
-      if (error instanceof Error) {
-        console.error("Error details:", error.message);
-        if ('networkError' in error) {
-          console.error("Network error:", (error as any).networkError);
-        }
-        if ('graphQLErrors' in error) {
-          console.error("GraphQL errors:", (error as any).graphQLErrors);
-        }
-      }
-      
-      // Fallback to mock data during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const mockResponse = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
-        return formatReportData(mockResponse);
-      }
-      
-      throw error; // Re-throw for proper error handling in calling code
+      console.error('Error fetching financial report:', error);
+      throw error;
     }
   };
   
   /**
-   * Fetches all financial reports with optional filtering
-   * @param filter Optional filter parameters
-   * @param limit Optional maximum number of results
-   * @returns Array of formatted report data
+   * Fetches all financial reports
+   * @param filter Optional filter criteria
+   * @param limit Maximum number of items to return
+   * @returns Array of normalized report data
    */
-  const fetchAllReports = async (filter?: TableFinancialReportsFilterInput, limit?: number) => {
+  const fetchAllReports = async (filter = {}, limit = 20) => {
     try {
-      // Check if API key is available
-      const apiKey = import.meta.env.VITE_APPSYNC_API_KEY;
-      if (!apiKey) {
-        console.warn("AppSync API Key not provided in environment variables. Using mock data.");
-        const mockResponse = await mockGraphQLCall('listFinancialReports', { filter, limit });
-        if (mockResponse && mockResponse.items) {
-          return mockResponse.items.map((item: any) => formatReportData(item)).filter(Boolean);
-        }
-        return [];
-      }
-      
-      // Use Apollo Client for the actual query
-      const client = getApolloClient();
-      const response = await client.query({
-        query: LIST_FINANCIAL_REPORTS,
-        variables: { filter, limit },
-        fetchPolicy: 'network-only' // Ensure fresh data
-      });
-      
-      const items = response.data?.listFinancialReports?.items || [];
-      return items.map((item: any) => formatReportData(item)).filter(Boolean);
-    } catch (error) {
-      console.error("Error fetching reports from AppSync:", error);
-      
-      // Enhanced error logging
-      if (error instanceof Error) {
-        console.error("Error details:", error.message);
-        if ('networkError' in error) {
-          console.error("Network error:", (error as any).networkError);
-        }
-        if ('graphQLErrors' in error) {
-          console.error("GraphQL errors:", (error as any).graphQLErrors);
-        }
-      }
-      
-      // Fallback to mock data during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const mockResponse = await mockGraphQLCall('listFinancialReports', { filter, limit });
+      if (import.meta.env.VITE_APPSYNC_API_KEY) {
+        const { data } = await client.query({
+          query: LIST_FINANCIAL_REPORTS,
+          variables: { filter, limit },
+          fetchPolicy: 'network-only'
+        });
         
-        if (mockResponse && mockResponse.items) {
-          return mockResponse.items.map((item: any) => formatReportData(item)).filter(Boolean);
-        }
+        return data.listFinancialReports.items.map(formatReportData);
+      } else {
+        console.warn('No API key found, using mock data');
+        const mockData = await mockGraphQLCall('listFinancialReports', { filter, limit });
+        return mockData.items.map(formatReportData);
       }
-      
-      throw error; // Re-throw for proper error handling in calling code
+    } catch (error) {
+      console.error('Error fetching all reports:', error);
+      throw error;
     }
   };
   
@@ -657,14 +531,13 @@ export const useAppSyncData = () => {
    */
   const getLatestReport = async (companyId: string) => {
     try {
-      const client = getApolloClient();
-      const response = await client.query({
+      const { data } = await client.query({
         query: GET_LATEST_REPORT,
         variables: { companyId },
         fetchPolicy: 'network-only'
       });
       
-      return formatReportData(response.data?.getLatestReport);
+      return formatReportData(data.getLatestReport);
     } catch (error) {
       console.error("Error fetching latest report from AppSync:", error);
       
@@ -687,14 +560,13 @@ export const useAppSyncData = () => {
    */
   const listReportsByIndustry = async (industry: string, limit?: number) => {
     try {
-      const client = getApolloClient();
-      const response = await client.query({
+      const { data } = await client.query({
         query: LIST_REPORTS_BY_INDUSTRY,
         variables: { industry, limit },
         fetchPolicy: 'network-only'
       });
       
-      const items = response.data?.listReportsByIndustry?.items || [];
+      const items = data.listReportsByIndustry.items || [];
       return items.map((item: any) => formatReportData(item)).filter(Boolean);
     } catch (error) {
       console.error("Error fetching industry reports from AppSync:", error);
@@ -721,14 +593,13 @@ export const useAppSyncData = () => {
    */
   const listReportsByCreditDecision = async (creditDecision: CreditDecision, limit?: number) => {
     try {
-      const client = getApolloClient();
-      const response = await client.query({
+      const { data } = await client.query({
         query: LIST_REPORTS_BY_CREDIT_DECISION,
         variables: { creditDecision, limit },
         fetchPolicy: 'network-only'
       });
       
-      const items = response.data?.listReportsByCreditDecision?.items || [];
+      const items = data.listReportsByCreditDecision.items || [];
       return items.map((item: any) => formatReportData(item)).filter(Boolean);
     } catch (error) {
       console.error("Error fetching credit decision reports from AppSync:", error);
@@ -754,13 +625,12 @@ export const useAppSyncData = () => {
    */
   const createFinancialReport = async (reportData: any) => {
     try {
-      const client = getApolloClient();
-      const response = await client.mutate({
+      const { data } = await client.mutate({
         mutation: CREATE_FINANCIAL_REPORT,
         variables: { input: reportData }
       });
       
-      return formatReportData(response.data?.createFinancialReports);
+      return formatReportData(data.createFinancialReports);
     } catch (error) {
       console.error("Error creating financial report:", error);
       throw error;
@@ -774,13 +644,12 @@ export const useAppSyncData = () => {
    */
   const updateFinancialReport = async (reportData: any) => {
     try {
-      const client = getApolloClient();
-      const response = await client.mutate({
+      const { data } = await client.mutate({
         mutation: UPDATE_FINANCIAL_REPORT,
         variables: { input: reportData }
       });
       
-      return formatReportData(response.data?.updateFinancialReports);
+      return formatReportData(data.updateFinancialReports);
     } catch (error) {
       console.error("Error updating financial report:", error);
       throw error;
