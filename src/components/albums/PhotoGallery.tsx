@@ -23,12 +23,12 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
     const fetchPhotos = async () => {
       try {
         setLoading(true);
-        const response = await s3Service.listObjects(albumName);
+        const response = await s3Service.listFiles(albumName);
         const photoObjects = response.Contents || [];
         
         // Map S3 objects to photo objects with URLs
         const photoData = await Promise.all(photoObjects.map(async (photo: any) => {
-          const url = await s3Service.getSignedUrl(photo.Key);
+          const url = await s3Service.getFileUrl(photo.Key);
           return {
             key: photo.Key,
             url,
@@ -62,15 +62,15 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
         const file = files[i];
         const key = `${albumName}/${Date.now()}_${file.name}`;
         
-        await s3Service.uploadObject(key, file);
+        await s3Service.uploadFile(key, file);
       }
       
       // Refresh the photo list
-      const response = await s3Service.listObjects(albumName);
+      const response = await s3Service.listFiles(albumName);
       const photoObjects = response.Contents || [];
       
       const photoData = await Promise.all(photoObjects.map(async (photo: any) => {
-        const url = await s3Service.getSignedUrl(photo.Key);
+        const url = await s3Service.getFileUrl(photo.Key);
         return {
           key: photo.Key,
           url,
@@ -98,7 +98,7 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
   // Fix for the error in line 108
   const deletePhoto = (key: string) => {
     // Call with only one argument as expected
-    s3Service.deleteObject(key);
+    s3Service.deleteFile(key);
   };
   
   if (loading) {

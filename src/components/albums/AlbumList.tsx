@@ -19,7 +19,7 @@ const AlbumList = () => {
     const fetchAlbums = async () => {
       try {
         setLoading(true);
-        const response = await s3Service.listAlbums(''); // Pass empty string as parameter
+        const response = await s3Service.listAlbums();
         // Fix for CommonPrefixes error - now extracting common prefixes correctly
         const albumPrefixes = response?.CommonPrefixes || [];
         setAlbums(albumPrefixes);
