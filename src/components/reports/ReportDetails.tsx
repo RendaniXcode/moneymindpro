@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Report } from '@/hooks/useReportsService';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import MetricCard from '@/components/dashboard/MetricCard';
 
 interface ReportDetailsProps {
@@ -34,28 +34,37 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
   const approvalStatus = report.creditScore >= 70 ? 'approved' : 'declined';
   
   return (
-    <div className="space-y-4">
-      {/* Credit Score Decision Card */}
-      <div className="mb-4">
-        <h3 className="text-lg font-medium mb-2">Credit Decision</h3>
-        <div className="max-w-xs">
-          <MetricCard 
-            title="Credit Score" 
-            value={report.creditScore}
-            description={`Credit ${approvalStatus === 'approved' ? 'approved' : 'declined'} based on financial analysis`}
-            status={approvalStatus}
-          />
+    <div className="space-y-3">
+      {/* Credit Decision */}
+      <div>
+        <h3 className="text-lg font-medium mb-1.5">Credit Decision</h3>
+        <div className="border rounded-md p-4 max-w-xs flex flex-col items-center border-green-200 bg-green-50">
+          <div className="h-20 w-20 rounded-full bg-green-500 flex items-center justify-center mb-2">
+            <span className="text-3xl font-bold text-white">{report.creditScore}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-green-700 font-medium">
+            {approvalStatus === 'approved' ? (
+              <><CheckCircle className="h-5 w-5" /> APPROVED</>
+            ) : (
+              <><XCircle className="h-5 w-5" /> DECLINED</>
+            )}
+          </div>
+          <div className="text-sm text-center text-muted-foreground mt-1">
+            Credit {approvalStatus} based on financial analysis
+          </div>
         </div>
       </div>
       
+      {/* Company Profile */}
       <div>
-        <h3 className="text-lg font-medium mb-2">Company Profile</h3>
+        <h3 className="text-lg font-medium mb-1.5">Company Profile</h3>
         <p className="text-muted-foreground">{report.companyProfile}</p>
       </div>
       
+      {/* Financial Performance Trends */}
       <div>
-        <h3 className="text-lg font-medium mb-2">Financial Performance Trends</h3>
-        <div className="h-[250px]">
+        <h3 className="text-lg font-medium mb-1.5">Financial Performance Trends</h3>
+        <div className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
@@ -74,8 +83,9 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="p-3">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <Card className="p-2">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Revenue Growth</h4>
             {Number(revenueGrowth) > 0 ? (
@@ -92,7 +102,7 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
           </div>
         </Card>
         
-        <Card className="p-3">
+        <Card className="p-2">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Profit Growth</h4>
             {Number(profitGrowth) > 0 ? (
@@ -109,7 +119,7 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
           </div>
         </Card>
         
-        <Card className="p-3">
+        <Card className="p-2">
           <div className="flex justify-between items-center">
             <h4 className="text-sm font-medium">Debt to Revenue</h4>
             {Number(debtToRevenue) < 0.5 ? (
@@ -127,9 +137,10 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
         </Card>
       </div>
       
+      {/* Risk Assessment */}
       <div>
-        <h3 className="text-lg font-medium mb-2">Risk Assessment</h3>
-        <div className={`p-3 rounded-md ${
+        <h3 className="text-lg font-medium mb-1.5">Risk Assessment</h3>
+        <div className={`p-2 rounded-md ${
           report.riskLevel === 'low' ? 'bg-green-50 border border-green-200' :
           report.riskLevel === 'medium' ? 'bg-amber-50 border border-amber-200' :
           'bg-red-50 border border-red-200'
@@ -165,9 +176,10 @@ const ReportDetails: React.FC<ReportDetailsProps> = ({ report }) => {
         </div>
       </div>
       
+      {/* Key Insights */}
       <div>
-        <h3 className="text-lg font-medium mb-2">Key Insights</h3>
-        <div className="space-y-1.5">
+        <h3 className="text-lg font-medium mb-1.5">Key Insights</h3>
+        <div className="space-y-1">
           {report.insights.map((insight, index) => (
             <div key={index} className="flex gap-2 p-2 bg-gray-50 rounded-md">
               <div className="flex-shrink-0 bg-blue-100 text-blue-800 rounded-full h-5 w-5 flex items-center justify-center text-xs font-medium">
