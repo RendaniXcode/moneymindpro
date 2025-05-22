@@ -1,5 +1,8 @@
-
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { ApolloClient, InMemoryCache, HttpLink, split, gql } from '@apollo/client';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
+import { getMainDefinition } from '@apollo/client/utilities';
 import { Report } from './useReportsService';
 
 // Define types from the GraphQL schema
@@ -95,7 +98,150 @@ interface FinancialReportsConnection {
   nextToken?: string;
 }
 
-// This will be replaced by an actual GraphQL client in the future
+// Create Apollo Client instance
+// Note: In a real production app, you would implement API key authentication
+// or other auth mechanisms required by AppSync
+const createApolloClient = () => {
+  const httpLink = new HttpLink({
+    uri: 'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql',
+    // Add your authentication method here (API key, IAM, Cognito, etc.)
+    // headers: { 'x-api-key': 'YOUR_API_KEY' }
+  });
+
+  // WebSocket link for real-time subscriptions
+  const wsLink = new GraphQLWsLink(
+    createClient({
+      url: 'wss://mbk6kqyz5jdednao4spo6lntn4.appsync-realtime-api.us-east-1.amazonaws.com/graphql',
+      // Add authentication as needed
+      // connectionParams: { ... }
+    })
+  );
+
+  // Use split to route operations based on their type
+  const splitLink = split(
+    ({ query }) => {
+      const definition = getMainDefinition(query);
+      return (
+        definition.kind === 'OperationDefinition' &&
+        definition.operation === 'subscription'
+      );
+    },
+    wsLink,
+    httpLink
+  );
+
+  return new ApolloClient({
+    link: splitLink,
+    cache: new InMemoryCache()
+  });
+};
+
+// Create a singleton instance to be used throughout the app
+// In a real app, you might want to provide this via React Context
+const apolloClient = createApolloClient();
+
+// GraphQL query definitions
+const GET_FINANCIAL_REPORTS = gql`
+  query GetFinancialReports($companyId: String!, $reportDate: String!) {
+    getFinancialReports(companyId: $companyId, reportDate: $reportDate) {
+      companyId
+      reportDate
+      companyName
+      industry
+      creditScore
+      creditDecision
+      reportStatus
+      lastUpdated
+      financialRatios
+      recommendations
+      performanceTrends
+    }
+  }
+`;
+
+const LIST_FINANCIAL_REPORTS = gql`
+  query ListFinancialReports($filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
+    listFinancialReports(filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        companyId
+        reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
+        reportStatus
+        lastUpdated
+        financialRatios
+        recommendations
+        performanceTrends
+      }
+      nextToken
+    }
+  }
+`;
+
+const GET_LATEST_REPORT = gql`
+  query GetLatestReport($companyId: String!) {
+    getLatestReport(companyId: $companyId) {
+      companyId
+      reportDate
+      companyName
+      industry
+      creditScore
+      creditDecision
+      reportStatus
+      lastUpdated
+      financialRatios
+      recommendations
+      performanceTrends
+    }
+  }
+`;
+
+const LIST_REPORTS_BY_INDUSTRY = gql`
+  query ListReportsByIndustry($industry: String!, $filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
+    listReportsByIndustry(industry: $industry, filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        companyId
+        reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
+        reportStatus
+        lastUpdated
+        financialRatios
+        recommendations
+        performanceTrends
+      }
+      nextToken
+    }
+  }
+`;
+
+const LIST_REPORTS_BY_CREDIT_DECISION = gql`
+  query ListReportsByCreditDecision($creditDecision: CreditDecision!, $filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
+    listReportsByCreditDecision(creditDecision: $creditDecision, filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        companyId
+        reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
+        reportStatus
+        lastUpdated
+        financialRatios
+        recommendations
+        performanceTrends
+      }
+      nextToken
+    }
+  }
+`;
+
+// For debugging/development: temporarily keep the mock data implementation
+// This will be used as fallback or for development when AppSync is unavailable
 const mockGraphQLCall = async (operation: string, variables?: any): Promise<any> => {
   // Simulate network latency
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -109,39 +255,8 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
       industry: "Media & Entertainment",
       creditScore: 82,
       creditDecision: CreditDecision.APPROVED,
-      ratios: [
-        { 
-          category: "liquidity_ratios", 
-          metric: "current_ratio", 
-          value: "1.85", 
-          assessment: "positive",
-          explanation: "The company has strong short-term liquidity with current assets exceeding current liabilities."
-        },
-        // ... other ratios would be here
-      ],
-      recommendations: [
-        "Consider optimizing inventory management to improve the inventory turnover ratio.",
-        "Maintain the current debt management strategy as it provides a good balance between leverage and financial stability.",
-        "Explore opportunities to improve asset utilization to enhance the asset turnover ratio.",
-        "Continue investing in high-return content production to maintain competitive advantage.",
-        "Consider strategic acquisitions in emerging markets to diversify revenue streams."
-      ],
-      trends: {
-        revenue: [45, 47, 52, 58, 62],
-        profit: [12, 14, 15, 18, 20],
-        debt: [30, 28, 25, 22, 20]
-      },
-      insights: [
-        "MultiChoice Group demonstrates strong financial health with robust liquidity and solvency positions.",
-        "The company's profitability metrics outperform industry averages, particularly in operating profit margin.",
-        "Consistently improving revenue trends indicate successful market penetration and product adoption.",
-        "The debt structure is sustainable with a conservative debt-to-equity ratio of 0.68.",
-        "Strong cash flow generation supports ongoing investments in content and technology infrastructure."
-      ],
-      riskLevel: "low",
-      companyProfile: "MultiChoice Group is a leading entertainment company in Africa with operations across satellite TV, streaming services, and content development.",
-      lastUpdated: "2024-04-15T14:30:00Z",
       reportStatus: ReportStatus.PUBLISHED,
+      lastUpdated: "2024-04-15T14:30:00Z",
       financialRatios: JSON.stringify({
         liquidityRatios: {
           currentRatio: { value: 1.85, explanation: "The company has strong short-term liquidity with current assets exceeding current liabilities.", assessment: "positive" },
@@ -164,7 +279,7 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
           priceToEarnings: { value: 14.8, explanation: "P/E ratio is reasonable compared to industry peers, suggesting fair valuation.", assessment: "neutral" }
         }
       }),
-      recommendationsJson: JSON.stringify([
+      recommendations: JSON.stringify([
         "Consider optimizing inventory management to improve the inventory turnover ratio.",
         "Maintain the current debt management strategy as it provides a good balance between leverage and financial stability.",
         "Explore opportunities to improve asset utilization to enhance the asset turnover ratio.",
@@ -232,7 +347,7 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
 };
 
 // Adapted format for our application
-const formatReportData = (appSyncData: any): Report => {
+const formatReportData = (appSyncData: any): Report | null => {
   if (!appSyncData) return null;
   
   // Parse JSON strings from DynamoDB
@@ -305,45 +420,113 @@ export const useAppSyncData = () => {
   // This hook will provide the interface for AppSync data
   
   const getFinancialReport = async (companyId: string, reportDate: string) => {
-    // This would be a GraphQL query in a real implementation
-    const response = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
-    return formatReportData(response);
+    try {
+      // Use Apollo Client to make an actual GraphQL query
+      const response = await apolloClient.query({
+        query: GET_FINANCIAL_REPORTS,
+        variables: { companyId, reportDate }
+      });
+      
+      return formatReportData(response.data?.getFinancialReports);
+    } catch (error) {
+      console.error("Error fetching financial report from AppSync:", error);
+      
+      // Fallback to mock data during development
+      console.log("Falling back to mock data");
+      const mockResponse = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
+      return formatReportData(mockResponse);
+    }
   };
   
   const fetchAllReports = async (filter?: TableFinancialReportsFilterInput, limit?: number) => {
-    // In a real implementation, this would be a GraphQL query using the Apollo client
-    const response = await mockGraphQLCall('listFinancialReports', { filter, limit });
-    
-    if (response && response.items) {
-      return response.items.map(item => formatReportData(item));
+    try {
+      // Use Apollo Client for the actual query
+      const response = await apolloClient.query({
+        query: LIST_FINANCIAL_REPORTS,
+        variables: { filter, limit }
+      });
+      
+      const items = response.data?.listFinancialReports?.items || [];
+      return items.map(item => formatReportData(item)).filter(Boolean);
+    } catch (error) {
+      console.error("Error fetching reports from AppSync:", error);
+      
+      // Fallback to mock data during development
+      console.log("Falling back to mock data");
+      const mockResponse = await mockGraphQLCall('listFinancialReports', { filter, limit });
+      
+      if (mockResponse && mockResponse.items) {
+        return mockResponse.items.map(item => formatReportData(item)).filter(Boolean);
+      }
+      
+      return [];
     }
-    
-    return [];
   };
   
   const getLatestReport = async (companyId: string) => {
-    const response = await mockGraphQLCall('getLatestReport', { companyId });
-    return formatReportData(response);
+    try {
+      const response = await apolloClient.query({
+        query: GET_LATEST_REPORT,
+        variables: { companyId }
+      });
+      
+      return formatReportData(response.data?.getLatestReport);
+    } catch (error) {
+      console.error("Error fetching latest report from AppSync:", error);
+      
+      // Fallback to mock data during development
+      console.log("Falling back to mock data");
+      const mockResponse = await mockGraphQLCall('getLatestReport', { companyId });
+      return formatReportData(mockResponse);
+    }
   };
   
   const listReportsByIndustry = async (industry: string, limit?: number) => {
-    const response = await mockGraphQLCall('listReportsByIndustry', { industry, limit });
-    
-    if (response && response.items) {
-      return response.items.map(item => formatReportData(item));
+    try {
+      const response = await apolloClient.query({
+        query: LIST_REPORTS_BY_INDUSTRY,
+        variables: { industry, limit }
+      });
+      
+      const items = response.data?.listReportsByIndustry?.items || [];
+      return items.map(item => formatReportData(item)).filter(Boolean);
+    } catch (error) {
+      console.error("Error fetching industry reports from AppSync:", error);
+      
+      // Fallback to mock data during development
+      console.log("Falling back to mock data");
+      const mockResponse = await mockGraphQLCall('listReportsByIndustry', { industry, limit });
+      
+      if (mockResponse && mockResponse.items) {
+        return mockResponse.items.map(item => formatReportData(item)).filter(Boolean);
+      }
+      
+      return [];
     }
-    
-    return [];
   };
   
   const listReportsByCreditDecision = async (creditDecision: CreditDecision, limit?: number) => {
-    const response = await mockGraphQLCall('listReportsByCreditDecision', { creditDecision, limit });
-    
-    if (response && response.items) {
-      return response.items.map(item => formatReportData(item));
+    try {
+      const response = await apolloClient.query({
+        query: LIST_REPORTS_BY_CREDIT_DECISION,
+        variables: { creditDecision, limit }
+      });
+      
+      const items = response.data?.listReportsByCreditDecision?.items || [];
+      return items.map(item => formatReportData(item)).filter(Boolean);
+    } catch (error) {
+      console.error("Error fetching credit decision reports from AppSync:", error);
+      
+      // Fallback to mock data during development
+      console.log("Falling back to mock data");
+      const mockResponse = await mockGraphQLCall('listReportsByCreditDecision', { creditDecision, limit });
+      
+      if (mockResponse && mockResponse.items) {
+        return mockResponse.items.map(item => formatReportData(item)).filter(Boolean);
+      }
+      
+      return [];
     }
-    
-    return [];
   };
   
   return {
@@ -355,35 +538,36 @@ export const useAppSyncData = () => {
   };
 };
 
-// This is a hook that would use Apollo Client in a real implementation
+// This is a hook that uses Apollo Client directly for GraphQL operations
 export const useGraphQLReports = () => {
-  /*
-   * In a real implementation with Apollo Client, this would look more like:
-   * 
-   * import { useQuery } from '@apollo/client';
-   * import { GET_FINANCIAL_REPORTS, GET_REPORT_BY_ID } from '../graphql/queries';
-   * 
-   * export const useGraphQLReports = () => {
-   *   const fetchReports = (variables) => {
-   *     return useQuery(GET_FINANCIAL_REPORTS, { variables });
-   *   };
-   *   
-   *   const getReportById = (variables) => {
-   *     return useQuery(GET_REPORT_BY_ID, { variables });
-   *   };
-   *   
-   *   return { fetchReports, getReportById };
-   * };
-   */
-  
-  // Mock implementation
   const fetchReports = async () => {
-    return await mockGraphQLCall('listFinancialReports', { limit: 10 });
+    try {
+      const result = await apolloClient.query({
+        query: LIST_FINANCIAL_REPORTS,
+        variables: { limit: 10 }
+      });
+      return result.data?.listFinancialReports?.items || [];
+    } catch (error) {
+      console.error("Error fetching reports with Apollo:", error);
+      // Fallback to mock during development
+      return mockGraphQLCall('listFinancialReports', { limit: 10 });
+    }
   };
   
   const getReportById = async (id: string) => {
-    const [companyId, reportDate] = id.split('-');
-    return await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
+    try {
+      const [companyId, reportDate] = id.split('-');
+      const result = await apolloClient.query({
+        query: GET_FINANCIAL_REPORTS,
+        variables: { companyId, reportDate }
+      });
+      return result.data?.getFinancialReports;
+    } catch (error) {
+      console.error("Error fetching report by ID with Apollo:", error);
+      // Fallback to mock during development
+      const [companyId, reportDate] = id.split('-');
+      return mockGraphQLCall('getFinancialReports', { companyId, reportDate });
+    }
   };
   
   return {
