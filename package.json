@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.9.9",
+    "@aws-crypto/sha256-js": "^5.2.0",
     "@aws-sdk/client-s3": "^3.802.0",
     "@aws-sdk/lib-storage": "^3.802.0",
     "@hookform/resolvers": "^3.9.0",
