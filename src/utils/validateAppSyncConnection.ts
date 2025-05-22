@@ -1,71 +1,97 @@
 
-import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, gql, ApolloLink } from '@apollo/client';
 import { createAuthLink } from 'aws-appsync-auth-link';
-import { createHttpLink } from '@apollo/client/link/http';
 import { Sha256 } from '@aws-crypto/sha256-js';
 
-/**
- * Validates connection to AWS AppSync GraphQL API
- * @returns Promise with connection status and message
- */
+const TEST_QUERY = gql`
+  query TestConnection {
+    getLatestReport(companyId: "test") {
+      companyId
+    }
+  }
+`;
+
 export const validateAppSyncConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
-    // Get API key and endpoint from environment variables
-    const apiKey = import.meta.env.VITE_APPSYNC_API_KEY;
-    const endpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
+    // Get AppSync configuration from environment variables
+    const apiKey = import.meta.env.VITE_APPSYNC_API_KEY || '';
+    const httpEndpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
       'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql';
-
+    
     if (!apiKey) {
-      return { 
-        success: false, 
-        message: 'API Key is missing. Please set the VITE_APPSYNC_API_KEY environment variable.' 
+      return {
+        success: false,
+        message: "Missing API key. Please set VITE_APPSYNC_API_KEY environment variable."
       };
     }
-
-    // Create auth link with API key - handle disableOffline type issue
+    
+    // Create auth link with proper typing for disableOffline
     const authLink = createAuthLink({
-      url: endpoint,
-      region: 'us-east-1', // Assuming region is us-east-1, update as needed
+      url: httpEndpoint,
+      region: 'us-east-1',
       auth: {
         type: 'API_KEY',
         apiKey
       },
-      // TypeScript doesn't recognize disableOffline in the type definitions
-      // but the library actually accepts it - we'll cast to any to avoid the error
       ...(({ disableOffline: true, SHA256: Sha256 } as any))
     });
-
+    
     // Create HTTP link
-    const httpLink = createHttpLink({ uri: endpoint });
-
-    // Create temporary Apollo client for validation
-    const validationClient = new ApolloClient({
-      link: authLink.concat(httpLink),
-      cache: new InMemoryCache()
+    const httpLink = new HttpLink({
+      uri: httpEndpoint
     });
-
-    // Simple test query to check connection
-    const response = await validationClient.query({
-      query: gql`
-        query TestConnection {
-          __schema {
-            types {
-              name
-            }
-          }
+    
+    // Create Apollo Client for testing
+    const client = new ApolloClient({
+      link: ApolloLink.from([authLink, httpLink]),
+      cache: new InMemoryCache(),
+      defaultOptions: {
+        query: {
+          fetchPolicy: 'network-only',
+          errorPolicy: 'all'
         }
-      `
+      }
     });
-
-    return { 
-      success: true, 
-      message: 'Successfully connected to AWS AppSync GraphQL API'
+    
+    // Attempt a simple query to test the connection
+    const result = await client.query({
+      query: TEST_QUERY,
+      errorPolicy: 'all'
+    });
+    
+    // Check for GraphQL errors
+    if (result.errors && result.errors.length > 0) {
+      // Connection succeeded but query had errors (expected since we're using a dummy ID)
+      return {
+        success: true,
+        message: "AppSync connection validated (expected query error for test ID)"
+      };
+    }
+    
+    // Successful connection and query
+    return {
+      success: true,
+      message: "AppSync connection validated successfully"
     };
-  } catch (error) {
-    console.error('AppSync connection validation failed:', error);
-    return { 
-      success: false, 
-      message: `Failed to connect to AppSync API: ${error instanceof Error ? error.message : String(error)}`
+  } catch (error: any) {
+    console.error("Error validating AppSync connection:", error);
+    
+    // Determine the error type
+    if (error.networkError) {
+      return {
+        success: false,
+        message: `Network error connecting to AppSync: ${error.networkError.message || 'Check your network connection or endpoint URL'}`
+      };
+    } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+      return {
+        success: false,
+        message: `GraphQL error: ${error.graphQLErrors[0].message}`
+      };
+    }
+    
+    return {
+      success: false,
+      message: `Failed to connect to AppSync: ${error.message || 'Unknown error'}`
     };
   }
 };

@@ -20,6 +20,21 @@ export enum ReportStatus {
   ARCHIVED = "ARCHIVED"
 }
 
+// Define the missing FinancialReports interface
+interface FinancialReports {
+  companyId: string;
+  reportDate: string;
+  companyName: string;
+  industry: string;
+  creditScore: number;
+  creditDecision: CreditDecision;
+  reportStatus: ReportStatus;
+  lastUpdated: string;
+  financialRatios: string;
+  recommendations: string;
+  performanceTrends: string;
+}
+
 // Create Apollo Client instance with API key authentication and proper error handling
 const createApolloClient = () => {
   // Get API key and endpoints from environment variables

@@ -1,12 +1,10 @@
-// This is a temporary error fix and you should REFACTOR this properly
-// Adding stub methods to prevent build errors - these should be properly implemented
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Folder } from 'lucide-react';
-import { useS3Service } from '@/services/s3Service';
+import { S3Service } from '@/services/s3Service';
 
 // Temporary fix for the error
 interface CommonPrefix {
@@ -16,7 +14,7 @@ interface CommonPrefix {
 const AlbumList = () => {
   const [albums, setAlbums] = useState<CommonPrefix[]>([]);
   const [loading, setLoading] = useState(true);
-  const s3Service = useS3Service();
+  const s3Service = new S3Service();
 
   useEffect(() => {
     const fetchAlbums = async () => {
@@ -34,7 +32,7 @@ const AlbumList = () => {
     };
 
     fetchAlbums();
-  }, [s3Service]);
+  }, []);
 
   if (loading) {
     return <p>Loading albums...</p>;

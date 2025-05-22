@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useS3Service } from '@/services/s3Service';
+import { S3Service } from '@/services/s3Service';
 
 // Fix the file upload function to accept a File object
 const handleFileUpload = async (file: File, album: string) => {
@@ -16,7 +17,7 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const s3Service = useS3Service();
+  const s3Service = new S3Service();
   
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -47,7 +48,7 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
     if (albumName) {
       fetchPhotos();
     }
-  }, [albumName, s3Service]);
+  }, [albumName]);
   
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -118,7 +119,7 @@ const PhotoGallery = ({ albumName }: { albumName: string }) => {
             onChange={handleFileChange}
           />
           <label htmlFor="photo-upload">
-            <Button as="span" disabled={uploading}>
+            <Button className="cursor-pointer" disabled={uploading}>
               {uploading ? 'Uploading...' : 'Upload Photos'}
             </Button>
           </label>
