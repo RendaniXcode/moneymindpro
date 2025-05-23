@@ -467,6 +467,18 @@ export const useAppSyncData = () => {
     try {
       console.log('Fetching financial report:', { companyId, reportDate });
       
+      // Try REST API first for better reliability
+      try {
+        const { restApiService } = await import('@/services/restApiService');
+        const restResult = await restApiService.getReport(companyId, reportDate);
+        if (restResult) {
+          console.log('Successfully fetched from REST API');
+          return restResult;
+        }
+      } catch (restError) {
+        console.warn('REST API failed, trying AppSync:', restError);
+      }
+      
       if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: GET_FINANCIAL_REPORTS,
@@ -504,7 +516,7 @@ export const useAppSyncData = () => {
         console.log('GraphQL response for listFinancialReports:', data);
         
         // Check if data and items exist before proceeding
-        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+        if (!data || !data.listFinancialReports || !Array.isArray(data.listFinancialReports.items)) {
           console.warn('No items found in GraphQL response, returning empty array');
           return [];
         }
@@ -515,7 +527,7 @@ export const useAppSyncData = () => {
         const mockData = await mockGraphQLCall('listFinancialReports', { filter, limit });
         
         // Ensure mock data has proper structure
-        if (!mockData || !mockData.items) {
+        if (!mockData || !Array.isArray(mockData.items)) {
           console.warn('Mock data missing items array, returning empty array');
           return [];
         }
@@ -544,7 +556,7 @@ export const useAppSyncData = () => {
         
         console.log('GraphQL response for listReportsByIndustry:', data);
         
-        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+        if (!data || !data.listFinancialReports || !Array.isArray(data.listFinancialReports.items)) {
           console.warn('No items found in industry reports response, returning empty array');
           return [];
         }
@@ -554,7 +566,7 @@ export const useAppSyncData = () => {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter: { industry: { eq: industry } }, limit });
         
-        if (!mockData || !mockData.items) {
+        if (!mockData || !Array.isArray(mockData.items)) {
           console.warn('Mock data missing items array, returning empty array');
           return [];
         }
@@ -583,7 +595,7 @@ export const useAppSyncData = () => {
         
         console.log('GraphQL response for listReportsByCreditDecision:', data);
         
-        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+        if (!data || !data.listFinancialReports || !Array.isArray(data.listFinancialReports.items)) {
           console.warn('No items found in credit decision reports response, returning empty array');
           return [];
         }
@@ -593,7 +605,7 @@ export const useAppSyncData = () => {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter: { creditDecision: { eq: creditDecision } }, limit });
         
-        if (!mockData || !mockData.items) {
+        if (!mockData || !Array.isArray(mockData.items)) {
           console.warn('Mock data missing items array, returning empty array');
           return [];
         }

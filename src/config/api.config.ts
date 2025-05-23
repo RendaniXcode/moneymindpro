@@ -6,11 +6,12 @@
 
 export const API_CONFIG = {
   REST_API: {
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://10o0oyafx1.execute-api.eu-west-1.amazonaws.com',
+    baseURL: 'https://4sdo9r6zx0.execute-api.us-east-1.amazonaws.com',
     endpoints: {
       financialData: '/prod/finalfuctionpoc',
       uploadData: '/prod/upload',
-      analyzeDocument: '/prod/analyze'
+      analyzeDocument: '/prod/analyze',
+      reports: '/v1/reports' // New REST API endpoint
     }
   },
   S3: {
@@ -28,6 +29,8 @@ export const API_CONFIG = {
 // Debugging function to check configuration
 export const debugAPIConfig = () => {
   console.log('=== API Configuration Debug ===');
+  console.log('REST API Base URL:', API_CONFIG.REST_API.baseURL);
+  console.log('Reports Endpoint:', API_CONFIG.REST_API.baseURL + API_CONFIG.REST_API.endpoints.reports);
   console.log('AppSync Endpoint:', API_CONFIG.APPSYNC.endpoint);
   console.log('AppSync API Key:', API_CONFIG.APPSYNC.apiKey ? `${API_CONFIG.APPSYNC.apiKey.substring(0, 10)}...` : 'MISSING');
   console.log('AppSync Region:', API_CONFIG.APPSYNC.region);
