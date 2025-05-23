@@ -1,11 +1,10 @@
-
 import { apiClient } from './apiClient';
 import { API_CONFIG } from '@/config/api.config';
 import { toast } from '@/hooks/use-toast';
 
 // Define proper types for financial data responses
 export interface FinancialRatio {
-  id?: number;  // Make id required for compatibility with DataTable
+  id: number;  // Changed from optional to required to match DataTable interface
   category: string;
   metric: string;
   value: string | number;

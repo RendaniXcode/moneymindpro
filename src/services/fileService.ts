@@ -1,79 +1,66 @@
 
-import { apiClient } from './apiClient';
+import { toast } from '@/hooks/use-toast';
 import { s3Service } from './s3Service';
 import { API_CONFIG } from '@/config/api.config';
-import { toast } from '@/hooks/use-toast';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { GetObjectCommand, ListObjectsV2CommandOutput } from '@aws-sdk/client-s3';
 
 /**
- * Service for handling file uploads and document analysis
+ * Service for handling file operations
  */
-export class FileService {
+class FileService {
   /**
-   * Upload a file to S3 and return the key
+   * Upload a file to S3 and return the file URL
    */
   async uploadFile(file: File): Promise<string | null> {
     try {
-      // Generate a unique key for the file
-      const key = `uploads/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-      
-      // Upload to S3
-      await s3Service.uploadFile(key, file);
-      
-      return key;
+      const result = await s3Service.uploadFile(file);
+      return result;
     } catch (error) {
       console.error('Error uploading file:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not upload file. Please try again.",
+        description: "Could not upload file to storage",
         variant: "destructive",
       });
       return null;
     }
   }
-  
+
   /**
-   * Analyze a document using the REST API
+   * Generate a presigned URL for downloading a file from S3
    */
-  async analyzeDocument(fileKey: string) {
+  async getFileUrl(key: string): Promise<string | null> {
     try {
-      const endpoint = API_CONFIG.REST_API.endpoints.analyzeDocument;
-      const result = await apiClient.post(endpoint, {
-        key: fileKey,
-        type: 'financial_document'
+      const command = new GetObjectCommand({
+        Bucket: API_CONFIG.S3.bucket,
+        Key: key,
       });
+
+      const url = await getSignedUrl(s3Service.getClient(), command, { expiresIn: 3600 });
+      return url;
+    } catch (error) {
+      console.error('Error generating file URL:', error);
+      return null;
+    }
+  }
+
+  /**
+   * List all files in a specific S3 folder
+   */
+  async listFiles(folderPath: string): Promise<any[]> {
+    try {
+      const result: ListObjectsV2CommandOutput = await s3Service.listFiles(folderPath);
       
-      return result;
-    } catch (error) {
-      console.error('Error analyzing document:', error);
-      toast({
-        title: "Analysis Failed",
-        description: "Could not analyze the document. Please try again later.",
-        variant: "destructive",
-      });
-      return null;
-    }
-  }
-  
-  /**
-   * Get a signed URL to download or view a file from S3
-   */
-  async getSignedUrl(key: string): Promise<string | null> {
-    try {
-      // Remove the empty parameter
-      return await s3Service.getSignedUrl(key);
-    } catch (error) {
-      console.error('Error getting signed URL:', error);
-      return null;
-    }
-  }
-  
-  /**
-   * List files in an S3 directory
-   */
-  async listFiles(prefix: string = 'uploads/'): Promise<any[]> {
-    try {
-      const files = await s3Service.listFiles(prefix);
-      return files;
+      if (!result.Contents) {
+        return [];
+      }
+      
+      return result.Contents.map(item => ({
+        key: item.Key,
+        size: item.Size,
+        lastModified: item.LastModified,
+      }));
     } catch (error) {
       console.error('Error listing files:', error);
       return [];
@@ -81,5 +68,5 @@ export class FileService {
   }
 }
 
-// Export singleton instance
+// Export a singleton instance
 export const fileService = new FileService();
