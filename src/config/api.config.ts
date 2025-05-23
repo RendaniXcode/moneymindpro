@@ -19,7 +19,7 @@ export const API_CONFIG = {
     accelerationEnabled: import.meta.env.VITE_ENABLE_S3_ACCELERATION === 'true'
   },
   APPSYNC: {
-    endpoint: 'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql',
+    endpoint: 'https://at4z7qkpdnhrdjn7x2qlnqtzdy.appsync-api.us-east-1.amazonaws.com/graphql',
     apiKey: 'da2-nmj2ixkunrhetcbz3lddvjtmpi',
     region: 'us-east-1'
   }

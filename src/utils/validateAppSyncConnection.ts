@@ -11,8 +11,11 @@ if (typeof window !== 'undefined' && !window.global) {
 
 const TEST_QUERY = gql`
   query TestConnection {
-    getLatestReport(companyId: "test") {
-      companyId
+    listFinancialReports(limit: 1) {
+      items {
+        companyId
+        reportDate
+      }
     }
   }
 `;
@@ -66,10 +69,9 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
     
     // Check for GraphQL errors
     if (result.errors && result.errors.length > 0) {
-      // Connection succeeded but query had errors (expected since we're using a dummy ID)
       return {
-        success: true,
-        message: "AppSync connection validated (expected query error for test ID)"
+        success: false,
+        message: `GraphQL error: ${result.errors[0].message}`
       };
     }
     

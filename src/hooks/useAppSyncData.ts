@@ -19,32 +19,19 @@ if (typeof window !== 'undefined' && !window.global) {
   (window as any).global = window;
 }
 
-// Define types from the GraphQL schema
-export enum CreditDecision {
-  APPROVED = "APPROVED",
-  DENIED = "DENIED",
-  PENDING = "PENDING"
-}
-
-export enum ReportStatus {
-  DRAFT = "DRAFT",
-  PUBLISHED = "PUBLISHED",
-  ARCHIVED = "ARCHIVED"
-}
-
-// Define the FinancialReports interface
+// Define the FinancialReports interface based on your new schema
 export interface FinancialReports {
   companyId: string;
   reportDate: string;
-  companyName: string;
-  industry: string;
-  creditScore: number;
-  creditDecision: CreditDecision;
-  reportStatus: ReportStatus;
-  lastUpdated: string;
-  financialRatios: string;
-  recommendations: string;
-  performanceTrends: string;
+  companyName?: string;
+  industry?: string;
+  creditScore?: number;
+  creditDecision: string;
+  reportStatus?: string;
+  lastUpdated?: string;
+  financialRatios?: string;
+  recommendations?: string;
+  performanceTrends?: string;
 }
 
 // Create Apollo Client instance with API key authentication and proper error handling
@@ -61,8 +48,6 @@ const createApolloClient = () => {
   const wsEndpoint = httpEndpoint.replace('https://', 'wss://').replace('/graphql', '/graphql');
   
   // Create auth link using aws-appsync-auth-link
-  // TypeScript doesn't recognize disableOffline in the type definitions
-  // but the library actually accepts it - we'll cast to any to avoid the error
   const authLink = createAuthLink({
     url: httpEndpoint,
     region: API_CONFIG.APPSYNC.region,
@@ -91,7 +76,6 @@ const createApolloClient = () => {
     return forward(operation).map((response) => {
       if (response.errors && response.errors.length > 0) {
         console.error('GraphQL Errors:', response.errors);
-        // You can handle specific error types here
         response.errors.forEach((err) => {
           const errorCode = err.extensions?.code;
           if (errorCode === 'UNAUTHENTICATED') {
@@ -128,7 +112,6 @@ const createApolloClient = () => {
         Query: {
           fields: {
             listFinancialReports: {
-              // Merge function for proper pagination
               keyArgs: ['filter'],
               merge(existing = { items: [] }, incoming) {
                 return {
@@ -172,7 +155,7 @@ const getApolloClient = () => {
   return apolloClient;
 };
 
-// GraphQL query definitions
+// Updated GraphQL query definitions based on your new schema
 const GET_FINANCIAL_REPORTS = gql`
   query GetFinancialReports($companyId: String!, $reportDate: String!) {
     getFinancialReports(companyId: $companyId, reportDate: $reportDate) {
@@ -212,67 +195,7 @@ const LIST_FINANCIAL_REPORTS = gql`
   }
 `;
 
-const GET_LATEST_REPORT = gql`
-  query GetLatestReport($companyId: String!) {
-    getLatestReport(companyId: $companyId) {
-      companyId
-      reportDate
-      companyName
-      industry
-      creditScore
-      creditDecision
-      reportStatus
-      lastUpdated
-      financialRatios
-      recommendations
-      performanceTrends
-    }
-  }
-`;
-
-const LIST_REPORTS_BY_INDUSTRY = gql`
-  query ListReportsByIndustry($industry: String!, $filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
-    listReportsByIndustry(industry: $industry, filter: $filter, limit: $limit, nextToken: $nextToken) {
-      items {
-        companyId
-        reportDate
-        companyName
-        industry
-        creditScore
-        creditDecision
-        reportStatus
-        lastUpdated
-        financialRatios
-        recommendations
-        performanceTrends
-      }
-      nextToken
-    }
-  }
-`;
-
-const LIST_REPORTS_BY_CREDIT_DECISION = gql`
-  query ListReportsByCreditDecision($creditDecision: CreditDecision!, $filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
-    listReportsByCreditDecision(creditDecision: $creditDecision, filter: $filter, limit: $limit, nextToken: $nextToken) {
-      items {
-        companyId
-        reportDate
-        companyName
-        industry
-        creditScore
-        creditDecision
-        reportStatus
-        lastUpdated
-        financialRatios
-        recommendations
-        performanceTrends
-      }
-      nextToken
-    }
-  }
-`;
-
-// GraphQL mutation definitions for creating/updating data
+// Updated GraphQL mutation definitions
 const CREATE_FINANCIAL_REPORT = gql`
   mutation CreateFinancialReport($input: CreateFinancialReportsInput!) {
     createFinancialReports(input: $input) {
@@ -310,12 +233,11 @@ const UPDATE_FINANCIAL_REPORT = gql`
 `;
 
 // For development: fallback mock data implementation
-// This will be used only when API key is not available
 const mockGraphQLCall = async (operation: string, variables?: any): Promise<any> => {
   // Simulate network latency
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  // Mock data that matches our DynamoDB schema
+  // Mock data that matches your new schema
   const reports: FinancialReports[] = [
     {
       companyId: "MULTI-2024",
@@ -323,8 +245,8 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
       companyName: "MultiChoice Group",
       industry: "Media & Entertainment",
       creditScore: 82,
-      creditDecision: CreditDecision.APPROVED,
-      reportStatus: ReportStatus.PUBLISHED,
+      creditDecision: "APPROVED",
+      reportStatus: "PUBLISHED",
       lastUpdated: "2024-04-15T14:30:00Z",
       financialRatios: JSON.stringify({
         liquidityRatios: {
@@ -339,21 +261,12 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
         solvencyRatios: {
           debtToEquityRatio: { value: 0.68, explanation: "The company has a conservative debt structure with more equity than debt.", assessment: "positive" },
           interestCoverageRatio: { value: 8.5, explanation: "Company generates enough operating income to cover interest expenses multiple times.", assessment: "positive" }
-        },
-        efficiencyRatios: {
-          assetTurnoverRatio: { value: 0.74, explanation: "The company could improve efficiency in using assets to generate revenue.", assessment: "neutral" },
-          inventoryTurnover: { value: 5.2, explanation: "Moderate inventory turnover indicates potential for optimization.", assessment: "neutral" }
-        },
-        marketValueRatios: {
-          priceToEarnings: { value: 14.8, explanation: "P/E ratio is reasonable compared to industry peers, suggesting fair valuation.", assessment: "neutral" }
         }
       }),
       recommendations: JSON.stringify([
         "Consider optimizing inventory management to improve the inventory turnover ratio.",
         "Maintain the current debt management strategy as it provides a good balance between leverage and financial stability.",
-        "Explore opportunities to improve asset utilization to enhance the asset turnover ratio.",
-        "Continue investing in high-return content production to maintain competitive advantage.",
-        "Consider strategic acquisitions in emerging markets to diversify revenue streams."
+        "Explore opportunities to improve asset utilization to enhance the asset turnover ratio."
       ]),
       performanceTrends: JSON.stringify({
         revenue: [45, 47, 52, 58, 62],
@@ -363,7 +276,7 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
     }
   ];
   
-  // Mock operations based on the GraphQL schema
+  // Mock operations based on the updated GraphQL schema
   switch (operation) {
     case 'getFinancialReports':
       return reports.find(r => 
@@ -375,7 +288,6 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
       let filteredReports = reports;
       
       if (variables.filter) {
-        // Apply filters (simplified implementation)
         if (variables.filter.companyId?.eq) {
           filteredReports = filteredReports.filter(r => r.companyId === variables.filter.companyId.eq);
         }
@@ -390,24 +302,6 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
       return {
         items: filteredReports.slice(0, variables.limit || 10),
         nextToken: filteredReports.length > (variables.limit || 10) ? "nextPageToken" : null
-      };
-        
-    case 'getLatestReport':
-      return reports.filter(r => r.companyId === variables.companyId)
-        .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())[0] || null;
-        
-    case 'listReportsByIndustry':
-      const industryReports = reports.filter(r => r.industry === variables.industry);
-      return {
-        items: industryReports.slice(0, variables.limit || 10),
-        nextToken: industryReports.length > (variables.limit || 10) ? "nextPageToken" : null
-      };
-      
-    case 'listReportsByCreditDecision':
-      const decisionReports = reports.filter(r => r.creditDecision === variables.creditDecision);
-      return {
-        items: decisionReports.slice(0, variables.limit || 10),
-        nextToken: decisionReports.length > (variables.limit || 10) ? "nextPageToken" : null
       };
         
     default:
@@ -434,16 +328,13 @@ const formatReportData = (appSyncData: any): Report | null => {
   let trends = { revenue: [0, 0, 0, 0, 0], profit: [0, 0, 0, 0, 0], debt: [0, 0, 0, 0, 0] };
   let riskLevel: 'low' | 'medium' | 'high' = 'medium';
   
-  // Process financial ratios based on format
-  if (isDynamoDBFormat && appSyncData.financialRatios) {
-    financialRatios = formatFinancialRatios(appSyncData.financialRatios);
-  } else if (data.financialRatios) {
+  // Process financial ratios
+  if (data.financialRatios) {
     try {
       const ratiosObj = typeof data.financialRatios === 'string' 
         ? JSON.parse(data.financialRatios) 
         : data.financialRatios;
         
-      // Flatten the nested financial ratios structure
       Object.entries(ratiosObj).forEach(([category, metrics]: [string, any]) => {
         Object.entries(metrics).forEach(([metric, metricData]: [string, any]) => {
           financialRatios.push({
@@ -460,10 +351,8 @@ const formatReportData = (appSyncData: any): Report | null => {
     }
   }
   
-  // Process recommendations based on format
-  if (isDynamoDBFormat && appSyncData.recommendations) {
-    recommendations = formatRecommendations(appSyncData.recommendations);
-  } else if (data.recommendations) {
+  // Process recommendations
+  if (data.recommendations) {
     try {
       recommendations = typeof data.recommendations === 'string' 
         ? JSON.parse(data.recommendations) 
@@ -473,10 +362,8 @@ const formatReportData = (appSyncData: any): Report | null => {
     }
   }
   
-  // Process performance trends based on format
-  if (isDynamoDBFormat && appSyncData.performanceTrends) {
-    trends = formatPerformanceTrends(appSyncData.performanceTrends);
-  } else if (data.performanceTrends) {
+  // Process performance trends
+  if (data.performanceTrends) {
     try {
       trends = typeof data.performanceTrends === 'string' 
         ? JSON.parse(data.performanceTrends) 
@@ -487,9 +374,7 @@ const formatReportData = (appSyncData: any): Report | null => {
   }
   
   // Calculate risk level based on credit score
-  const creditScore = isDynamoDBFormat 
-    ? Number(appSyncData.creditScore?.N || 0) 
-    : (data.creditScore || 0);
+  const creditScore = data.creditScore || 0;
     
   if (creditScore >= 75) riskLevel = 'low';
   else if (creditScore >= 60) riskLevel = 'medium';
@@ -497,26 +382,23 @@ const formatReportData = (appSyncData: any): Report | null => {
   
   // Create standardized report format
   return {
-    reportId: `${isDynamoDBFormat ? appSyncData.companyId.S : data.companyId}-${isDynamoDBFormat ? appSyncData.reportDate.S : data.reportDate}`,
-    companyName: isDynamoDBFormat ? appSyncData.companyName.S : data.companyName,
-    industry: isDynamoDBFormat ? appSyncData.industry.S : data.industry,
-    date: isDynamoDBFormat ? appSyncData.reportDate.S : data.reportDate,
-    year: isDynamoDBFormat 
-      ? new Date(appSyncData.reportDate.S).getFullYear().toString() 
-      : new Date(data.reportDate).getFullYear().toString(),
+    reportId: `${data.companyId}-${data.reportDate}`,
+    companyName: data.companyName || 'Unknown Company',
+    industry: data.industry || 'Unknown Industry',
+    date: data.reportDate,
+    year: new Date(data.reportDate).getFullYear().toString(),
     creditScore: creditScore,
     ratios: financialRatios,
     insights: insights,
     recommendations: recommendations,
     riskLevel: riskLevel,
     trends: trends,
-    companyProfile: isDynamoDBFormat ? (appSyncData.companyProfile?.S || '') : (data.companyProfile || '')
+    companyProfile: data.companyProfile || ''
   };
 };
 
 /**
  * Hook for interacting with AppSync GraphQL data
- * Provides methods for querying financial reports data
  */
 export const useAppSyncData = () => {
   // Get the Apollo client
@@ -524,23 +406,18 @@ export const useAppSyncData = () => {
   
   /**
    * Fetches a financial report by company ID and report date
-   * @param companyId Company identifier
-   * @param reportDate Date of the report
-   * @returns Normalized report data
    */
   const getFinancialReport = async (companyId: string, reportDate: string) => {
     try {
-      // Try to use the real GraphQL API if we have an API key
-      if (import.meta.env.VITE_APPSYNC_API_KEY) {
+      if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: GET_FINANCIAL_REPORTS,
           variables: { companyId, reportDate },
-          fetchPolicy: 'network-only' // Ensures fresh data
+          fetchPolicy: 'network-only'
         });
         
         return formatReportData(data.getFinancialReports);
       } else {
-        // Fallback to mock data if no API key
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('getFinancialReports', { companyId, reportDate });
         return formatReportData(mockData);
@@ -553,24 +430,21 @@ export const useAppSyncData = () => {
   
   /**
    * Fetches all financial reports
-   * @param filter Optional filter criteria
-   * @param limit Maximum number of items to return
-   * @returns Array of normalized report data
    */
   const fetchAllReports = async (filter = {}, limit = 20) => {
     try {
-      if (import.meta.env.VITE_APPSYNC_API_KEY) {
+      if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: LIST_FINANCIAL_REPORTS,
           variables: { filter, limit },
           fetchPolicy: 'network-only'
         });
         
-        return data.listFinancialReports.items.map(formatReportData);
+        return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
       } else {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter, limit });
-        return mockData.items.map(formatReportData);
+        return mockData.items.map(formatReportData).filter(Boolean);
       }
     } catch (error) {
       console.error('Error fetching all reports:', error);
@@ -579,103 +453,7 @@ export const useAppSyncData = () => {
   };
   
   /**
-   * Fetches the latest report for a specific company
-   * @param companyId The company ID
-   * @returns The latest formatted report data
-   */
-  const getLatestReport = async (companyId: string) => {
-    try {
-      const { data } = await client.query({
-        query: GET_LATEST_REPORT,
-        variables: { companyId },
-        fetchPolicy: 'network-only'
-      });
-      
-      return formatReportData(data.getLatestReport);
-    } catch (error) {
-      console.error("Error fetching latest report from AppSync:", error);
-      
-      // Fallback to mock data during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const mockResponse = await mockGraphQLCall('getLatestReport', { companyId });
-        return formatReportData(mockResponse);
-      }
-      
-      throw error;
-    }
-  };
-  
-  /**
-   * Lists reports filtered by industry
-   * @param industry The industry to filter by
-   * @param limit Optional maximum number of results
-   * @returns Array of formatted report data
-   */
-  const listReportsByIndustry = async (industry: string, limit?: number) => {
-    try {
-      const { data } = await client.query({
-        query: LIST_REPORTS_BY_INDUSTRY,
-        variables: { industry, limit },
-        fetchPolicy: 'network-only'
-      });
-      
-      const items = data.listReportsByIndustry.items || [];
-      return items.map((item: any) => formatReportData(item)).filter(Boolean);
-    } catch (error) {
-      console.error("Error fetching industry reports from AppSync:", error);
-      
-      // Fallback to mock data during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const mockResponse = await mockGraphQLCall('listReportsByIndustry', { industry, limit });
-        
-        if (mockResponse && mockResponse.items) {
-          return mockResponse.items.map((item: any) => formatReportData(item)).filter(Boolean);
-        }
-      }
-      
-      throw error;
-    }
-  };
-  
-  /**
-   * Lists reports filtered by credit decision
-   * @param creditDecision The credit decision to filter by
-   * @param limit Optional maximum number of results
-   * @returns Array of formatted report data
-   */
-  const listReportsByCreditDecision = async (creditDecision: CreditDecision, limit?: number) => {
-    try {
-      const { data } = await client.query({
-        query: LIST_REPORTS_BY_CREDIT_DECISION,
-        variables: { creditDecision, limit },
-        fetchPolicy: 'network-only'
-      });
-      
-      const items = data.listReportsByCreditDecision.items || [];
-      return items.map((item: any) => formatReportData(item)).filter(Boolean);
-    } catch (error) {
-      console.error("Error fetching credit decision reports from AppSync:", error);
-      
-      // Fallback to mock data during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const mockResponse = await mockGraphQLCall('listReportsByCreditDecision', { creditDecision, limit });
-        
-        if (mockResponse && mockResponse.items) {
-          return mockResponse.items.map((item: any) => formatReportData(item)).filter(Boolean);
-        }
-      }
-      
-      throw error;
-    }
-  };
-  
-  /**
    * Creates a new financial report
-   * @param reportData The report data to create
-   * @returns Created report data
    */
   const createFinancialReport = async (reportData: any) => {
     try {
@@ -693,8 +471,6 @@ export const useAppSyncData = () => {
   
   /**
    * Updates an existing financial report
-   * @param reportData The report data to update
-   * @returns Updated report data
    */
   const updateFinancialReport = async (reportData: any) => {
     try {
@@ -713,71 +489,7 @@ export const useAppSyncData = () => {
   return {
     getFinancialReport,
     fetchAllReports,
-    getLatestReport,
-    listReportsByIndustry,
-    listReportsByCreditDecision,
     createFinancialReport,
     updateFinancialReport
-  };
-};
-
-/**
- * Hook using Apollo Client directly for GraphQL operations
- * Useful for advanced use cases or direct access to Apollo Client
- */
-export const useGraphQLReports = () => {
-  // Ensure Apollo Client is initialized
-  const client = getApolloClient();
-  
-  const fetchReports = async () => {
-    try {
-      const result = await client.query({
-        query: LIST_FINANCIAL_REPORTS,
-        variables: { limit: 10 }
-      });
-      return result.data?.listFinancialReports?.items || [];
-    } catch (error) {
-      console.error("Error fetching reports with Apollo:", error);
-      
-      // Fallback to mock during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        return mockGraphQLCall('listFinancialReports', { limit: 10 });
-      }
-      
-      throw error;
-    }
-  };
-  
-  const getReportById = async (id: string) => {
-    try {
-      const [companyId, reportDate] = id.split('-');
-      if (!companyId || !reportDate) {
-        throw new Error("Invalid report ID format. Expected 'companyId-reportDate'");
-      }
-      
-      const result = await client.query({
-        query: GET_FINANCIAL_REPORTS,
-        variables: { companyId, reportDate }
-      });
-      return result.data?.getFinancialReports;
-    } catch (error) {
-      console.error("Error fetching report by ID with Apollo:", error);
-      
-      // Fallback to mock during development
-      if (import.meta.env.DEV) {
-        console.log("Falling back to mock data in development mode");
-        const [companyId, reportDate] = id.split('-');
-        return mockGraphQLCall('getFinancialReports', { companyId, reportDate });
-      }
-      
-      throw error;
-    }
-  };
-  
-  return {
-    fetchReports,
-    getReportById,
-    client // Expose the Apollo Client instance for advanced use cases
   };
 };

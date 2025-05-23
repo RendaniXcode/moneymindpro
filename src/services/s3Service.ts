@@ -1,7 +1,15 @@
 
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { API_CONFIG } from '@/config/api.config';
+
+export interface S3UploadResult {
+  Location: string;
+  Bucket: string;
+  Key: string;
+  ETag: string;
+}
 
 /**
  * Service for S3 operations
@@ -27,12 +35,15 @@ class S3Service {
   /**
    * Upload a file to S3 using multipart upload
    */
-  async uploadFile(file: File): Promise<string> {
+  async uploadFile(file: File, folder: string = 'uploads', metadata: Record<string, string> = {}): Promise<S3UploadResult> {
+    const key = `${folder}/${Date.now()}-${file.name}`;
+    
     const params = {
       Bucket: API_CONFIG.S3.bucket,
-      Key: `uploads/${Date.now()}-${file.name}`,
+      Key: key,
       Body: file,
-      ContentType: file.type
+      ContentType: file.type,
+      Metadata: metadata
     };
 
     try {
@@ -44,7 +55,14 @@ class S3Service {
 
       const result = await upload.done();
       console.log('File uploaded successfully:', result);
-      return params.Key;
+      
+      // Return formatted result to match expected interface
+      return {
+        Location: `https://${API_CONFIG.S3.bucket}.s3.${API_CONFIG.S3.region}.amazonaws.com/${key}`,
+        Bucket: API_CONFIG.S3.bucket,
+        Key: key,
+        ETag: result.ETag || ''
+      };
     } catch (error) {
       console.error('Error uploading file to S3:', error);
       throw error;
@@ -78,9 +96,44 @@ class S3Service {
   }
   
   /**
+   * Get a signed URL for a file
+   */
+  async getFileUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: API_CONFIG.S3.bucket,
+        Key: key
+      });
+      
+      return await getSignedUrl(this.client, command, { expiresIn });
+    } catch (error) {
+      console.error('Error generating signed URL:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Delete a file from S3
+   */
+  async deleteFile(key: string): Promise<void> {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: API_CONFIG.S3.bucket,
+        Key: key
+      });
+      
+      await this.client.send(command);
+      console.log('File deleted successfully:', key);
+    } catch (error) {
+      console.error('Error deleting file from S3:', error);
+      throw error;
+    }
+  }
+  
+  /**
    * List files in an S3 folder
    */
-  async listFiles(prefix: string) {
+  async listFiles(prefix: string): Promise<any> {
     const params = {
       Bucket: API_CONFIG.S3.bucket,
       Prefix: prefix
@@ -93,6 +146,32 @@ class S3Service {
     } catch (error) {
       console.error('Error listing files in S3:', error);
       throw error;
+    }
+  }
+  
+  /**
+   * List albums (folders) in S3
+   */
+  async listAlbums(): Promise<string[]> {
+    try {
+      const result = await this.listFiles('albums/');
+      const albums = new Set<string>();
+      
+      if (result.Contents) {
+        result.Contents.forEach((object: any) => {
+          if (object.Key) {
+            const parts = object.Key.split('/');
+            if (parts.length > 1 && parts[0] === 'albums') {
+              albums.add(parts[1]);
+            }
+          }
+        });
+      }
+      
+      return Array.from(albums);
+    } catch (error) {
+      console.error('Error listing albums:', error);
+      return [];
     }
   }
 }
