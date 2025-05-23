@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -360,7 +361,7 @@ const mockGraphQLCall = async (operation: string, variables?: any): Promise<any>
       };
         
     default:
-      return null;
+      return { items: [], nextToken: null };
   }
 };
 
@@ -464,6 +465,8 @@ export const useAppSyncData = () => {
    */
   const getFinancialReport = async (companyId: string, reportDate: string) => {
     try {
+      console.log('Fetching financial report:', { companyId, reportDate });
+      
       if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: GET_FINANCIAL_REPORTS,
@@ -471,6 +474,7 @@ export const useAppSyncData = () => {
           fetchPolicy: 'network-only'
         });
         
+        console.log('GraphQL response for getFinancialReport:', data);
         return formatReportData(data.getFinancialReports);
       } else {
         console.warn('No API key found, using mock data');
@@ -488,6 +492,8 @@ export const useAppSyncData = () => {
    */
   const fetchAllReports = async (filter = {}, limit = 20) => {
     try {
+      console.log('Fetching all reports with filter:', filter);
+      
       if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: LIST_FINANCIAL_REPORTS,
@@ -495,10 +501,25 @@ export const useAppSyncData = () => {
           fetchPolicy: 'network-only'
         });
         
+        console.log('GraphQL response for listFinancialReports:', data);
+        
+        // Check if data and items exist before proceeding
+        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+          console.warn('No items found in GraphQL response, returning empty array');
+          return [];
+        }
+        
         return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
       } else {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter, limit });
+        
+        // Ensure mock data has proper structure
+        if (!mockData || !mockData.items) {
+          console.warn('Mock data missing items array, returning empty array');
+          return [];
+        }
+        
         return mockData.items.map(formatReportData).filter(Boolean);
       }
     } catch (error) {
@@ -512,6 +533,8 @@ export const useAppSyncData = () => {
    */
   const listReportsByIndustry = async (industry: string, limit = 20) => {
     try {
+      console.log('Fetching reports by industry:', industry);
+      
       if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: LIST_REPORTS_BY_INDUSTRY,
@@ -519,10 +542,23 @@ export const useAppSyncData = () => {
           fetchPolicy: 'network-only'
         });
         
+        console.log('GraphQL response for listReportsByIndustry:', data);
+        
+        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+          console.warn('No items found in industry reports response, returning empty array');
+          return [];
+        }
+        
         return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
       } else {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter: { industry: { eq: industry } }, limit });
+        
+        if (!mockData || !mockData.items) {
+          console.warn('Mock data missing items array, returning empty array');
+          return [];
+        }
+        
         return mockData.items.map(formatReportData).filter(Boolean);
       }
     } catch (error) {
@@ -536,6 +572,8 @@ export const useAppSyncData = () => {
    */
   const listReportsByCreditDecision = async (creditDecision: CreditDecision, limit = 20) => {
     try {
+      console.log('Fetching reports by credit decision:', creditDecision);
+      
       if (API_CONFIG.APPSYNC.apiKey) {
         const { data } = await client.query({
           query: LIST_REPORTS_BY_CREDIT_DECISION,
@@ -543,10 +581,23 @@ export const useAppSyncData = () => {
           fetchPolicy: 'network-only'
         });
         
+        console.log('GraphQL response for listReportsByCreditDecision:', data);
+        
+        if (!data || !data.listFinancialReports || !data.listFinancialReports.items) {
+          console.warn('No items found in credit decision reports response, returning empty array');
+          return [];
+        }
+        
         return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
       } else {
         console.warn('No API key found, using mock data');
         const mockData = await mockGraphQLCall('listFinancialReports', { filter: { creditDecision: { eq: creditDecision } }, limit });
+        
+        if (!mockData || !mockData.items) {
+          console.warn('Mock data missing items array, returning empty array');
+          return [];
+        }
+        
         return mockData.items.map(formatReportData).filter(Boolean);
       }
     } catch (error) {
