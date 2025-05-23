@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
@@ -15,6 +14,7 @@ import { Search, FileText, Download, TrendingUp, TrendingDown, AlertCircle, Load
 import ReportDetails from '@/components/reports/ReportDetails';
 import { useReportsService } from '@/hooks/useReportsService';
 import { validateAppSyncConnection } from '@/utils/validateAppSyncConnection';
+import { debugAPIConfig } from '@/config/api.config';
 import { useEffect } from 'react';
 
 const ReportsPage = () => {
@@ -37,6 +37,7 @@ const ReportsPage = () => {
     refetchOnMount: true,
     meta: {
       onError: (error: Error) => {
+        console.error('Reports query error:', error);
         toast({
           title: "Error loading reports",
           description: error.message || "Failed to load reports. Please try again.",
@@ -55,22 +56,37 @@ const ReportsPage = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
   
-  // Validate the AppSync connection on component mount
+  // Validate the AppSync connection on component mount with enhanced debugging
   useEffect(() => {
     const validateConnection = async () => {
       try {
+        // Debug the API configuration first
+        debugAPIConfig();
+        
+        console.log('Starting AppSync connection validation...');
         const { success, message } = await validateAppSyncConnection();
+        
         if (!success) {
+          console.error('AppSync validation failed:', message);
           toast({
             title: "Connection Issue",
             description: message,
             variant: "destructive",
           });
         } else {
-          console.log("AppSync connection validated:", message);
+          console.log("AppSync connection validated successfully:", message);
+          toast({
+            title: "Connection Successful",
+            description: "AppSync connection established",
+          });
         }
       } catch (error) {
         console.error("Error validating AppSync connection:", error);
+        toast({
+          title: "Connection Error",
+          description: "Failed to validate AppSync connection",
+          variant: "destructive",
+        });
       }
     };
     
@@ -145,6 +161,9 @@ const ReportsPage = () => {
             <p className="font-medium">Failed to load reports</p>
             <p className="text-sm text-muted-foreground">
               {error instanceof Error ? error.message : "An unknown error occurred"}
+            </p>
+            <p className="text-xs text-red-600 mt-2">
+              Check console for detailed error information
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => refetchReports()}>

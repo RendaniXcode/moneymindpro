@@ -11,6 +11,11 @@ export interface S3UploadResult {
   ETag: string;
 }
 
+export interface S3UploadOptions {
+  onProgress?: (progress: { loaded: number; total: number }) => void;
+  metadata?: Record<string, string>;
+}
+
 /**
  * Service for S3 operations
  */
@@ -36,25 +41,17 @@ class S3Service {
    * Upload a file to S3 using multipart upload
    * @param file The file to upload
    * @param folder The S3 folder to upload to
-   * @param metadata Optional metadata or callback functions
+   * @param options Upload options including progress callback and metadata
    */
-  async uploadFile(file: File, folder: string = 'uploads', metadata: Record<string, string> = {}): Promise<S3UploadResult> {
+  async uploadFile(file: File, folder: string = 'uploads', options: S3UploadOptions = {}): Promise<S3UploadResult> {
     const key = `${folder}/${Date.now()}-${file.name}`;
-    
-    // Filter out any non-string metadata (like callbacks)
-    const sanitizedMetadata: Record<string, string> = {};
-    Object.entries(metadata).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        sanitizedMetadata[key] = value;
-      }
-    });
     
     const params = {
       Bucket: API_CONFIG.S3.bucket,
       Key: key,
       Body: file,
       ContentType: file.type,
-      Metadata: sanitizedMetadata
+      Metadata: options.metadata || {}
     };
 
     try {
@@ -63,6 +60,15 @@ class S3Service {
         client: this.client,
         params
       });
+
+      // Set up progress tracking if callback provided
+      if (options.onProgress) {
+        upload.on('httpUploadProgress', (progress) => {
+          if (options.onProgress && progress.loaded && progress.total) {
+            options.onProgress({ loaded: progress.loaded, total: progress.total });
+          }
+        });
+      }
 
       const result = await upload.done();
       console.log('File uploaded successfully:', result);
@@ -199,5 +205,6 @@ class S3Service {
   }
 }
 
-// Export a singleton instance
+// Export a singleton instance and the class
 export const s3Service = new S3Service();
+export { S3Service };

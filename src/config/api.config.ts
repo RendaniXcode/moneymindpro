@@ -25,6 +25,15 @@ export const API_CONFIG = {
   }
 };
 
+// Debugging function to check configuration
+export const debugAPIConfig = () => {
+  console.log('=== API Configuration Debug ===');
+  console.log('AppSync Endpoint:', API_CONFIG.APPSYNC.endpoint);
+  console.log('AppSync API Key:', API_CONFIG.APPSYNC.apiKey ? `${API_CONFIG.APPSYNC.apiKey.substring(0, 10)}...` : 'MISSING');
+  console.log('AppSync Region:', API_CONFIG.APPSYNC.region);
+  console.log('==============================');
+};
+
 // Error handling utilities
 export class APIError extends Error {
   constructor(

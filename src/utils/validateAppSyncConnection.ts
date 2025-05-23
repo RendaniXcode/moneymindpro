@@ -15,6 +15,10 @@ const TEST_QUERY = gql`
       items {
         companyId
         reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
       }
     }
   }
@@ -26,10 +30,22 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
     const apiKey = API_CONFIG.APPSYNC.apiKey;
     const httpEndpoint = API_CONFIG.APPSYNC.endpoint;
     
+    console.log('Validating AppSync connection with:');
+    console.log('- Endpoint:', httpEndpoint);
+    console.log('- API Key provided:', apiKey ? 'Yes' : 'No');
+    console.log('- Region:', API_CONFIG.APPSYNC.region);
+    
     if (!apiKey) {
       return {
         success: false,
         message: "Missing API key. Please check configuration."
+      };
+    }
+    
+    if (!httpEndpoint) {
+      return {
+        success: false,
+        message: "Missing GraphQL endpoint. Please check configuration."
       };
     }
     
@@ -62,13 +78,17 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
     });
     
     // Attempt a simple query to test the connection
+    console.log('Testing GraphQL query...');
     const result = await client.query({
       query: TEST_QUERY,
       errorPolicy: 'all'
     });
     
+    console.log('GraphQL query result:', result);
+    
     // Check for GraphQL errors
     if (result.errors && result.errors.length > 0) {
+      console.error('GraphQL errors:', result.errors);
       return {
         success: false,
         message: `GraphQL error: ${result.errors[0].message}`
@@ -83,11 +103,23 @@ export const validateAppSyncConnection = async (): Promise<{ success: boolean; m
   } catch (error: any) {
     console.error("Error validating AppSync connection:", error);
     
-    // Determine the error type
+    // More detailed error handling
     if (error.networkError) {
+      console.error("Network error details:", error.networkError);
+      if (error.networkError.statusCode === 401) {
+        return {
+          success: false,
+          message: `Authentication failed (401): Check your API key and permissions. API Key: ${API_CONFIG.APPSYNC.apiKey ? 'Present' : 'Missing'}`
+        };
+      } else if (error.networkError.statusCode === 403) {
+        return {
+          success: false,
+          message: `Access forbidden (403): Check your API key permissions and endpoint URL.`
+        };
+      }
       return {
         success: false,
-        message: `Network error connecting to AppSync: ${error.networkError.message || 'Check your network connection or endpoint URL'}`
+        message: `Network error (${error.networkError.statusCode || 'Unknown'}): ${error.networkError.message || 'Check your network connection and endpoint URL'}`
       };
     } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
       return {

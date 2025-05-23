@@ -1,72 +1,69 @@
 
-import { toast } from '@/hooks/use-toast';
-import { s3Service } from './s3Service';
-import { API_CONFIG } from '@/config/api.config';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { GetObjectCommand, ListObjectsV2CommandOutput } from '@aws-sdk/client-s3';
+import { s3Service, S3UploadResult, S3UploadOptions } from './s3Service';
 
 /**
  * Service for handling file operations
  */
 class FileService {
   /**
-   * Upload a file to S3 and return the file URL
+   * Upload a file to S3
+   * @param file The file to upload
+   * @param folder The S3 folder (optional)
+   * @param options Upload options
+   * @returns Promise with upload result
    */
-  async uploadFile(file: File): Promise<string | null> {
+  async uploadFile(file: File, folder?: string, options?: S3UploadOptions): Promise<S3UploadResult> {
     try {
-      const result = await s3Service.uploadFile(file);
-      return result;
+      return await s3Service.uploadFile(file, folder, options);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast({
-        title: "Upload Failed",
-        description: "Could not upload file to storage",
-        variant: "destructive",
-      });
-      return null;
+      console.error('Error in FileService.uploadFile:', error);
+      throw error;
     }
   }
 
   /**
-   * Generate a presigned URL for downloading a file from S3
+   * Get a presigned URL for a file
+   * @param key The S3 object key
+   * @param expiresIn Expiration time in seconds
+   * @returns Promise with the presigned URL
    */
-  async getFileUrl(key: string): Promise<string | null> {
+  async getFileUrl(key: string, expiresIn?: number): Promise<string> {
     try {
-      const command = new GetObjectCommand({
-        Bucket: API_CONFIG.S3.bucket,
-        Key: key,
-      });
-
-      const url = await getSignedUrl(s3Service.getClient(), command, { expiresIn: 3600 });
-      return url;
+      return await s3Service.getFileUrl(key, expiresIn);
     } catch (error) {
-      console.error('Error generating file URL:', error);
-      return null;
+      console.error('Error in FileService.getFileUrl:', error);
+      throw error;
     }
   }
 
   /**
-   * List all files in a specific S3 folder
+   * Delete a file from S3
+   * @param key The S3 object key
+   * @returns Promise
    */
-  async listFiles(folderPath: string): Promise<any[]> {
+  async deleteFile(key: string): Promise<void> {
     try {
-      const result: ListObjectsV2CommandOutput = await s3Service.listFiles(folderPath);
-      
-      if (!result.Contents) {
-        return [];
-      }
-      
-      return result.Contents.map(item => ({
-        key: item.Key,
-        size: item.Size,
-        lastModified: item.LastModified,
-      }));
+      await s3Service.deleteFile(key);
     } catch (error) {
-      console.error('Error listing files:', error);
-      return [];
+      console.error('Error in FileService.deleteFile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Download a file from S3
+   * @param key The S3 object key
+   * @returns Promise with the file blob
+   */
+  async downloadFile(key: string): Promise<Blob> {
+    try {
+      return await s3Service.downloadFile(key);
+    } catch (error) {
+      console.error('Error in FileService.downloadFile:', error);
+      throw error;
     }
   }
 }
 
-// Export a singleton instance
+// Export singleton instance
 export const fileService = new FileService();
