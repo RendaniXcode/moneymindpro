@@ -34,16 +34,27 @@ class S3Service {
 
   /**
    * Upload a file to S3 using multipart upload
+   * @param file The file to upload
+   * @param folder The S3 folder to upload to
+   * @param metadata Optional metadata or callback functions
    */
   async uploadFile(file: File, folder: string = 'uploads', metadata: Record<string, string> = {}): Promise<S3UploadResult> {
     const key = `${folder}/${Date.now()}-${file.name}`;
+    
+    // Filter out any non-string metadata (like callbacks)
+    const sanitizedMetadata: Record<string, string> = {};
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        sanitizedMetadata[key] = value;
+      }
+    });
     
     const params = {
       Bucket: API_CONFIG.S3.bucket,
       Key: key,
       Body: file,
       ContentType: file.type,
-      Metadata: metadata
+      Metadata: sanitizedMetadata
     };
 
     try {
@@ -161,6 +172,18 @@ class S3Service {
         result.Contents.forEach((object: any) => {
           if (object.Key) {
             const parts = object.Key.split('/');
+            if (parts.length > 1 && parts[0] === 'albums') {
+              albums.add(parts[1]);
+            }
+          }
+        });
+      }
+      
+      // Handle CommonPrefixes properly (for folder-like objects)
+      if (result.CommonPrefixes) {
+        result.CommonPrefixes.forEach((prefix: any) => {
+          if (prefix.Prefix) {
+            const parts = prefix.Prefix.split('/');
             if (parts.length > 1 && parts[0] === 'albums') {
               albums.add(parts[1]);
             }

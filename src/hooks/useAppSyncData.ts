@@ -19,6 +19,9 @@ if (typeof window !== 'undefined' && !window.global) {
   (window as any).global = window;
 }
 
+// Define credit decision enum
+export type CreditDecision = 'APPROVED' | 'REJECTED' | 'PENDING' | 'REVIEW';
+
 // Define the FinancialReports interface based on your new schema
 export interface FinancialReports {
   companyId: string;
@@ -177,6 +180,58 @@ const GET_FINANCIAL_REPORTS = gql`
 const LIST_FINANCIAL_REPORTS = gql`
   query ListFinancialReports($filter: TableFinancialReportsFilterInput, $limit: Int, $nextToken: String) {
     listFinancialReports(filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        companyId
+        reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
+        reportStatus
+        lastUpdated
+        financialRatios
+        recommendations
+        performanceTrends
+      }
+      nextToken
+    }
+  }
+`;
+
+// Query to filter reports by industry
+const LIST_REPORTS_BY_INDUSTRY = gql`
+  query ListReportsByIndustry($industry: String!, $limit: Int, $nextToken: String) {
+    listFinancialReports(
+      filter: { industry: { eq: $industry } }
+      limit: $limit
+      nextToken: $nextToken
+    ) {
+      items {
+        companyId
+        reportDate
+        companyName
+        industry
+        creditScore
+        creditDecision
+        reportStatus
+        lastUpdated
+        financialRatios
+        recommendations
+        performanceTrends
+      }
+      nextToken
+    }
+  }
+`;
+
+// Query to filter reports by credit decision
+const LIST_REPORTS_BY_CREDIT_DECISION = gql`
+  query ListReportsByCreditDecision($creditDecision: String!, $limit: Int, $nextToken: String) {
+    listFinancialReports(
+      filter: { creditDecision: { eq: $creditDecision } }
+      limit: $limit
+      nextToken: $nextToken
+    ) {
       items {
         companyId
         reportDate
@@ -451,6 +506,54 @@ export const useAppSyncData = () => {
       throw error;
     }
   };
+
+  /**
+   * Fetches financial reports filtered by industry
+   */
+  const listReportsByIndustry = async (industry: string, limit = 20) => {
+    try {
+      if (API_CONFIG.APPSYNC.apiKey) {
+        const { data } = await client.query({
+          query: LIST_REPORTS_BY_INDUSTRY,
+          variables: { industry, limit },
+          fetchPolicy: 'network-only'
+        });
+        
+        return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
+      } else {
+        console.warn('No API key found, using mock data');
+        const mockData = await mockGraphQLCall('listFinancialReports', { filter: { industry: { eq: industry } }, limit });
+        return mockData.items.map(formatReportData).filter(Boolean);
+      }
+    } catch (error) {
+      console.error(`Error fetching reports for industry ${industry}:`, error);
+      throw error;
+    }
+  };
+
+  /**
+   * Fetches financial reports filtered by credit decision
+   */
+  const listReportsByCreditDecision = async (creditDecision: CreditDecision, limit = 20) => {
+    try {
+      if (API_CONFIG.APPSYNC.apiKey) {
+        const { data } = await client.query({
+          query: LIST_REPORTS_BY_CREDIT_DECISION,
+          variables: { creditDecision, limit },
+          fetchPolicy: 'network-only'
+        });
+        
+        return data.listFinancialReports.items.map(formatReportData).filter(Boolean);
+      } else {
+        console.warn('No API key found, using mock data');
+        const mockData = await mockGraphQLCall('listFinancialReports', { filter: { creditDecision: { eq: creditDecision } }, limit });
+        return mockData.items.map(formatReportData).filter(Boolean);
+      }
+    } catch (error) {
+      console.error(`Error fetching reports for credit decision ${creditDecision}:`, error);
+      throw error;
+    }
+  };
   
   /**
    * Creates a new financial report
@@ -489,6 +592,8 @@ export const useAppSyncData = () => {
   return {
     getFinancialReport,
     fetchAllReports,
+    listReportsByIndustry,
+    listReportsByCreditDecision,
     createFinancialReport,
     updateFinancialReport
   };

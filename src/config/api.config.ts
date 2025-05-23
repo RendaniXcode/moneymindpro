@@ -20,7 +20,7 @@ export const API_CONFIG = {
   },
   APPSYNC: {
     endpoint: 'https://at4z7qkpdnhrdjn7x2qlnqtzdy.appsync-api.us-east-1.amazonaws.com/graphql',
-    apiKey: 'da2-nmj2ixkunrhetcbz3lddvjtmpi',
+    apiKey: 'da2-65ytw2ppgzb4linfwcyybhwf2m',
     region: 'us-east-1'
   }
 };
