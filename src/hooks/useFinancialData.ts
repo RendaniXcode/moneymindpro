@@ -1,130 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
-import { toast } from '@/components/ui/use-toast';
+import { 
+  financialDataService, 
+  FinancialDataParams, 
+  FinancialRatio 
+} from '@/services/financialDataService';
 
-interface FinancialDataParams {
-  companyId?: string;
-  year?: string;
-  category?: string;
-  metric?: string;
-  minValue?: number;
-  maxValue?: number;
-}
-
-const API_ENDPOINT = 'https://10o0oyafx1.execute-api.eu-west-1.amazonaws.com/prod/finalfuctionpoc';
-
+/**
+ * Hook for fetching financial data with React Query
+ */
 export const useFinancialData = (params: FinancialDataParams = {}) => {
   return useQuery({
     queryKey: ['financialData', params],
-    queryFn: async () => {
-      try {
-        // Build query parameters
-        const queryParams = new URLSearchParams();
-        
-        if (params.companyId) queryParams.append('company_id', params.companyId);
-        if (params.year) queryParams.append('year', params.year);
-        if (params.category) queryParams.append('category', params.category);
-        if (params.metric) queryParams.append('metric', params.metric);
-        if (params.minValue !== undefined) queryParams.append('min_value', params.minValue.toString());
-        if (params.maxValue !== undefined) queryParams.append('max_value', params.maxValue.toString());
-        
-        // Fetch data
-        const response = await fetch(`${API_ENDPOINT}?${queryParams}`);
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to fetch data');
-        }
-        
-        // Add status indicators based on financial health
-        result.ratioStatus = {
-          totalStatus: result.data.length > 15 ? 'declined' : 'approved',
-          categoryStatus: result.categories.length > 3 ? 'approved' : 'declined'
-        };
-        
-        return result;
-      } catch (error) {
-        console.error('Error fetching financial data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch financial data. Using cached data instead.",
-          variant: "destructive",
-        });
-        // Return null to indicate error - the component will use mock data
-        return null;
-      }
-    },
+    queryFn: () => financialDataService.fetchFinancialData(params),
   });
 };
 
-// Helper functions to transform API data into the format expected by components
-export const extractFinancialRatios = (data: any) => {
-  if (!data || !data.data) {
-    return [];
-  }
+// Re-export helper functions from the service for convenience
+export const extractFinancialRatios = financialDataService.extractFinancialRatios;
+export const processS3UploadedData = financialDataService.processS3UploadedData;
+export const formatCategoryName = financialDataService.formatCategoryName;
+export const formatMetricName = financialDataService.formatMetricName;
 
-  return data.data.map((item: any, index: number) => ({
-    id: index + 1,
-    category: item.Category,
-    metric: item.Metric,
-    value: item.Value,
-    explanation: item.Explanation
-  }));
-};
-
-// Enhanced helper to process S3 uploaded data
-export const processS3UploadedData = (data: any) => {
-  if (!data || !data.report) {
-    return null;
-  }
-  
-  // Convert the uploaded data format to match our API format
-  const processedData = {
-    data: [],
-    categories: [],
-    insights: data.report.key_insights || [],
-    recommendations: data.report.recommendations || [],
-    // Add company information if available
-    company: data.company || 'Unknown Company',
-    year: data.year || new Date().getFullYear().toString(),
-    uploadSource: 'S3 Transfer Accelerator'
-  };
-  
-  // Process financial ratios
-  if (data.report.financial_ratios) {
-    const categories = Object.keys(data.report.financial_ratios);
-    processedData.categories = categories;
-    
-    // Convert nested structure to flat array format
-    categories.forEach(category => {
-      const metrics = data.report.financial_ratios[category];
-      Object.keys(metrics).forEach(metricName => {
-        const metricData = metrics[metricName];
-        processedData.data.push({
-          Category: category,
-          Metric: metricName,
-          Value: metricData.value.toString(),
-          Explanation: metricData.explanation
-        });
-      });
-    });
-  }
-  
-  return processedData;
-};
-
-// Format helpers for display
-export const formatCategoryName = (category: string) => {
-  return category.split('_').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
-};
-
-export const formatMetricName = (metric: string) => {
-  return metric.split('_').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
-};
-
+// Legacy function for compatibility - consider removing in future refactoring
 export const getTrendData = (data: any, type: string, timeRange: string) => {
   // Since the new API doesn't provide trend data in the same format,
   // we'll continue using mock data for trends for now

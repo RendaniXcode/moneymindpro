@@ -102,7 +102,7 @@ export class S3Service {
         Key: key
       });
       
-      // Using getSignedUrl with proper typing
+      // Fix: using the proper typing for getSignedUrl
       const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
       return url;
     } catch (error) {
