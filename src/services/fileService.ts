@@ -1,73 +1,85 @@
+
+import { apiClient } from './apiClient';
 import { s3Service } from './s3Service';
+import { API_CONFIG } from '@/config/api.config';
+import { toast } from '@/hooks/use-toast';
 
 /**
- * FileService - A modern API for file operations, removing references to photo/album terminology
- * This service is a wrapper around the S3Service to provide a cleaner API
+ * Service for handling file uploads and document analysis
  */
 export class FileService {
   /**
-   * Upload a file to the specified folder
-   * @param file The file to upload
-   * @param folder The folder to upload to (optional)
-   * @param onProgress Progress callback (0-100)
-   * @returns Upload result with file information
+   * Upload a file to S3 and return the key
    */
-  async uploadFile(file: File, folder: string = '', onProgress?: (progress: number) => void) {
-    return s3Service.uploadFile(file, folder, onProgress);
+  async uploadFile(file: File): Promise<string | null> {
+    try {
+      // Generate a unique key for the file
+      const key = `uploads/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+      
+      // Upload to S3
+      await s3Service.uploadFile(key, file);
+      
+      return key;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Could not upload file. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
   }
   
   /**
-   * List all files in a folder
-   * @param folder The folder to list files from (optional)
-   * @returns Array of file information
+   * Analyze a document using the REST API
    */
-  async listFiles(folder: string = '') {
-    return s3Service.listFiles(folder);
+  async analyzeDocument(fileKey: string) {
+    try {
+      const endpoint = API_CONFIG.REST_API.endpoints.analyzeDocument;
+      const result = await apiClient.post(endpoint, {
+        key: fileKey,
+        type: 'financial_document'
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Error analyzing document:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze the document. Please try again later.",
+        variant: "destructive",
+      });
+      return null;
+    }
   }
   
   /**
-   * Delete a file by its key
-   * @param key The full path/key of the file to delete
+   * Get a signed URL to download or view a file from S3
    */
-  async deleteFile(key: string) {
-    return s3Service.deleteFile(key);
+  async getSignedUrl(key: string): Promise<string | null> {
+    try {
+      // Remove the empty parameter
+      return await s3Service.getSignedUrl(key);
+    } catch (error) {
+      console.error('Error getting signed URL:', error);
+      return null;
+    }
   }
   
   /**
-   * Create a new folder
-   * @param name The name of the folder to create
+   * List files in an S3 directory
    */
-  async createFolder(name: string) {
-    return s3Service.createFolder(name);
-  }
-  
-  /**
-   * List all folders
-   * @param prefix Optional prefix to filter folders
-   * @returns Array of folder names
-   */
-  async listFolders(prefix: string = '') {
-    return s3Service.listFolders(prefix);
-  }
-  
-  /**
-   * Delete a folder and all its contents
-   * @param folderName The name of the folder to delete
-   */
-  async deleteFolder(folderName: string) {
-    // Uses the existing deleteAlbum method since it handles recursive deletion
-    return s3Service.deleteAlbum(folderName);
-  }
-  
-  /**
-   * Get information about a single file
-   * @param key The full path/key of the file
-   * @returns File metadata and URL
-   */
-  async getFile(key: string) {
-    return s3Service.getFile(key);
+  async listFiles(prefix: string = 'uploads/'): Promise<any[]> {
+    try {
+      const files = await s3Service.listFiles(prefix);
+      return files;
+    } catch (error) {
+      console.error('Error listing files:', error);
+      return [];
+    }
   }
 }
 
-// Export a singleton instance
+// Export singleton instance
 export const fileService = new FileService();

@@ -2,6 +2,7 @@
 import { ApolloClient, InMemoryCache, HttpLink, gql, ApolloLink } from '@apollo/client';
 import { createAuthLink } from 'aws-appsync-auth-link';
 import { Sha256 } from '@aws-crypto/sha256-js';
+import { API_CONFIG } from '@/config/api.config';
 
 // Define the global object for aws-appsync-auth-link compatibility
 if (typeof window !== 'undefined' && !window.global) {
@@ -18,22 +19,21 @@ const TEST_QUERY = gql`
 
 export const validateAppSyncConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
-    // Get AppSync configuration from environment variables
-    const apiKey = import.meta.env.VITE_APPSYNC_API_KEY || '';
-    const httpEndpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
-      'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql';
+    // Get AppSync configuration from config
+    const apiKey = API_CONFIG.APPSYNC.apiKey;
+    const httpEndpoint = API_CONFIG.APPSYNC.endpoint;
     
     if (!apiKey) {
       return {
         success: false,
-        message: "Missing API key. Please set VITE_APPSYNC_API_KEY environment variable."
+        message: "Missing API key. Please check configuration."
       };
     }
     
     // Create auth link with proper typing for disableOffline
     const authLink = createAuthLink({
       url: httpEndpoint,
-      region: 'us-east-1',
+      region: API_CONFIG.APPSYNC.region,
       auth: {
         type: 'API_KEY',
         apiKey

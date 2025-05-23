@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 
 // Define proper types for financial data responses
 export interface FinancialRatio {
-  id?: number;
+  id?: number;  // Make id required for compatibility with DataTable
   category: string;
   metric: string;
   value: string | number;
@@ -157,11 +157,12 @@ class FinancialDataService {
     }
   
     return data.data.map((item: any, index: number) => ({
-      id: index + 1,
+      id: index + 1, // Ensure id is always provided for DataTable compatibility
       category: item.Category,
       metric: item.Metric,
       value: item.Value,
-      explanation: item.Explanation
+      explanation: item.Explanation,
+      assessment: 'neutral' // Default assessment if not provided
     }));
   }
 }

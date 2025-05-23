@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ApolloClient, InMemoryCache, HttpLink, split, gql, ApolloLink } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -7,6 +6,7 @@ import { getMainDefinition } from '@apollo/client/utilities';
 import { createAuthLink } from 'aws-appsync-auth-link';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { Report } from './useReportsService';
+import { API_CONFIG } from '@/config/api.config';
 import { 
   parseDynamoDBItem, 
   formatFinancialRatios, 
@@ -49,25 +49,23 @@ export interface FinancialReports {
 
 // Create Apollo Client instance with API key authentication and proper error handling
 const createApolloClient = () => {
-  // Get API key and endpoints from environment variables
-  const apiKey = import.meta.env.VITE_APPSYNC_API_KEY || '';
+  // Get API key and endpoints from environment variables or config
+  const apiKey = API_CONFIG.APPSYNC.apiKey;
   
   // Log configuration info (for debugging) - safely
   console.log('AppSync Configuration:');
   console.log('- API Key provided:', apiKey ? 'Yes' : 'No');
   
-  // Define endpoints from environment variables or use defaults
-  const httpEndpoint = import.meta.env.VITE_APPSYNC_ENDPOINT || 
-    'https://mbk6kqyz5jdednao4spo6lntn4.appsync-api.us-east-1.amazonaws.com/graphql';
-  const wsEndpoint = import.meta.env.VITE_APPSYNC_REALTIME_ENDPOINT || 
-    'wss://mbk6kqyz5jdednao4spo6lntn4.appsync-realtime-api.us-east-1.amazonaws.com/graphql';
+  // Define endpoints from config
+  const httpEndpoint = API_CONFIG.APPSYNC.endpoint;
+  const wsEndpoint = httpEndpoint.replace('https://', 'wss://').replace('/graphql', '/graphql');
   
   // Create auth link using aws-appsync-auth-link
   // TypeScript doesn't recognize disableOffline in the type definitions
   // but the library actually accepts it - we'll cast to any to avoid the error
   const authLink = createAuthLink({
     url: httpEndpoint,
-    region: 'us-east-1',
+    region: API_CONFIG.APPSYNC.region,
     auth: {
       type: 'API_KEY',
       apiKey
